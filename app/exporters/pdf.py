@@ -54,7 +54,7 @@ details summary {{ cursor: pointer; font-weight: bold; }}
 <p>Generated: {analysis.updated_at}</p>
 <p>Intent: {analysis.intent or 'N/A'}</p>
 <p>Confidence: {analysis.overall_confidence or 'N/A'}</p>
-<p>Generator: Threat Intel Agent v2.0</p>
+<p>Generator: Threat Intel Agent v0.1</p>
 </div>
 </div>
 {report_html}

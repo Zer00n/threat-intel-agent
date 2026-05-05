@@ -1,4 +1,4 @@
-# 威胁情报深度调研 Agent v2.0
+# 威胁情报深度调研 Agent v0.1
 
 企业 SOC 威胁情报调研助手。结合权威数据源（NVD、CISA KEV、EPSS、MITRE ATT&CK）与 AI 推理能力，自动生成结构化威胁情报报告。
 

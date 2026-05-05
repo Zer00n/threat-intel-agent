@@ -22,7 +22,7 @@ analysis_id: "{analysis.id}"
 token_input: {analysis.token_input}
 token_output: {analysis.token_output}
 cost_usd: {analysis.cost_usd}
-generator: "Threat Intel Agent v2.0"
+generator: "Threat Intel Agent v0.1"
 ---
 
 """

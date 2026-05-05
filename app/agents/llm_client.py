@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass, field
 from typing import Any
 
+import httpx
 import structlog
 
 from app.config import settings
@@ -12,6 +14,11 @@ logger = structlog.get_logger()
 
 class BudgetExceededError(Exception):
     """Raised when token budget is exceeded."""
+    pass
+
+
+class LLMTimeoutError(Exception):
+    """Raised when an LLM call times out."""
     pass
 
 
@@ -32,20 +39,26 @@ class LLMResponse:
 
 
 class LLMClient:
+    # Per-call timeout (seconds) — hard limit for a single API request
+    _CALL_TIMEOUT = 90
+
     def __init__(self, model: str | None = None):
         self._model = model or settings.anthropic_model
         self._total_usage = TokenUsage()
         self._api_format = settings.api_format
+
+        _timeout = httpx.Timeout(connect=10.0, read=self._CALL_TIMEOUT, write=30.0, pool=10.0)
 
         if self._api_format == "openai":
             import openai
             self._openai_client = openai.AsyncOpenAI(
                 api_key=settings.anthropic_api_key,
                 base_url=settings.anthropic_base_url or None,
+                timeout=_timeout,
             )
         else:
             import anthropic
-            client_kwargs = {"api_key": settings.anthropic_api_key}
+            client_kwargs = {"api_key": settings.anthropic_api_key, "timeout": _timeout}
             if settings.anthropic_base_url:
                 client_kwargs["base_url"] = settings.anthropic_base_url
             self._anthropic_client = anthropic.AsyncAnthropic(**client_kwargs)
@@ -68,9 +81,27 @@ class LLMClient:
         messages: list[dict[str, Any]],
         tools: list[dict[str, Any]] | None = None,
         max_tokens: int = 4096,
+        timeout: float | None = None,
     ) -> LLMResponse:
         self.check_budget()
+        call_timeout = timeout or self._CALL_TIMEOUT
 
+        try:
+            return await asyncio.wait_for(
+                self._do_complete(system, messages, tools, max_tokens),
+                timeout=call_timeout,
+            )
+        except asyncio.TimeoutError:
+            logger.warning("llm_call_timeout", timeout=call_timeout)
+            raise LLMTimeoutError(f"LLM call timed out after {call_timeout}s")
+
+    async def _do_complete(
+        self,
+        system: str,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None,
+        max_tokens: int,
+    ) -> LLMResponse:
         if self._api_format == "openai":
             return await self._complete_openai(system, messages, tools, max_tokens)
         else:
@@ -178,7 +209,6 @@ class LLMClient:
         )
 
     def _convert_tools_to_anthropic(self, tools: list[dict[str, Any]]) -> list[dict[str, Any]]:
-        """Convert generic tool definitions to Anthropic format."""
         result = []
         for tool in tools:
             result.append({
@@ -189,7 +219,6 @@ class LLMClient:
         return result
 
     def _convert_tools_to_openai(self, tools: list[dict[str, Any]]) -> list[dict[str, Any]]:
-        """Convert generic tool definitions to OpenAI format."""
         result = []
         for tool in tools:
             result.append({

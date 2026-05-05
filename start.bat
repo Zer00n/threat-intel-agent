@@ -1,9 +1,9 @@
 @echo off
 chcp 65001 >nul
-title Threat Intel Agent v2.0
+title Threat Intel Agent v0.1
 
 echo ==========================================
-echo   Threat Intel Agent v2.0
+echo   Threat Intel Agent v0.1
 echo ==========================================
 echo.
 

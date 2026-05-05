@@ -21,6 +21,13 @@ from app.utils.time import now_iso
 
 logger = structlog.get_logger()
 
+# Per-agent timeouts tuned for slow third-party APIs (~30-60s per LLM call)
+_INTENT_TIMEOUT = 60
+_PLANNER_TIMEOUT = 60
+_RESEARCHER_TIMEOUT = 180  # 2-3 rounds × ~60s per call
+_IOC_TIMEOUT = 60
+_CRITIC_TIMEOUT = 90
+
 
 async def run_analysis(
     task_id: str,
@@ -39,7 +46,6 @@ async def run_analysis(
     start_time = __import__("time").monotonic()
 
     try:
-        # Wrap entire analysis in global timeout (PRD §FR-13: 8 minutes)
         result = await asyncio.wait_for(
             _run_pipeline(task_id, memory, llm, emit, force_intent),
             timeout=settings.analysis_timeout_s,
@@ -57,7 +63,6 @@ async def run_analysis(
             "cost_usd": round(llm.total_usage.cost_usd, 4),
         })
 
-        # Persist results to database
         if db:
             try:
                 from app.agents.persistence import persist_analysis_results
@@ -89,7 +94,6 @@ async def run_analysis(
         logger.warning("analysis_timeout", task_id=task_id, duration=duration)
         await emit("timeout", {"message": f"Analysis timed out after {settings.analysis_timeout_s}s"})
 
-        # Persist partial results
         if db:
             try:
                 from app.agents.persistence import persist_analysis_results
@@ -108,7 +112,6 @@ async def run_analysis(
     except asyncio.CancelledError:
         await emit("stopped", {"partial_completed": True})
 
-        # Persist partial results
         if db:
             try:
                 from app.agents.persistence import persist_analysis_results
@@ -131,7 +134,6 @@ async def run_analysis(
             "limit_token": settings.single_task_token_limit,
         })
 
-        # Persist partial results
         if db:
             try:
                 from app.agents.persistence import persist_analysis_results
@@ -163,13 +165,21 @@ async def _run_pipeline(
 
     # 1. Intent Classification
     classifier = IntentClassifier(llm=llm, emit=emit)
-    await classifier.run(memory)
+    try:
+        await asyncio.wait_for(classifier.run(memory), timeout=_INTENT_TIMEOUT)
+    except asyncio.TimeoutError:
+        logger.warning("intent_classifier_timeout", task_id=task_id)
+        await emit("agent_timeout", {"agent_id": "classifier", "timeout_s": _INTENT_TIMEOUT})
     if force_intent:
         memory.intent.intent = force_intent
 
     # 2. Planning
     planner = PlannerAgent(llm=llm, emit=emit)
-    await planner.run(memory)
+    try:
+        await asyncio.wait_for(planner.run(memory), timeout=_PLANNER_TIMEOUT)
+    except asyncio.TimeoutError:
+        logger.warning("planner_timeout", task_id=task_id)
+        await emit("agent_timeout", {"agent_id": "planner", "timeout_s": _PLANNER_TIMEOUT})
 
     # 3. Enrichment (parallel data source calls, per-source timeout 15s)
     enricher = EnrichmentAgent(emit=emit)
@@ -177,9 +187,8 @@ async def _run_pipeline(
         await asyncio.wait_for(enricher.run(memory), timeout=settings.enrichment_timeout_s)
     except asyncio.TimeoutError:
         logger.warning("enrichment_timeout", task_id=task_id)
-        # Continue with partial enrichment
 
-    # 4. Research (parallel agents, per-agent timeout 30s per round)
+    # 4. Research (parallel agents)
     researcher_count = min(
         settings.researcher_count_default,
         len(memory.plan.research_questions),
@@ -188,24 +197,35 @@ async def _run_pipeline(
     for i in range(researcher_count):
         question = memory.plan.research_questions[i] if i < len(memory.plan.research_questions) else ""
         agent = ResearchAgent(agent_id=f"R{i+1}", llm=llm, emit=emit)
-        researcher_tasks.append(agent.run(memory, question=question))
+        researcher_tasks.append(
+            asyncio.wait_for(agent.run(memory, question=question), timeout=_RESEARCHER_TIMEOUT)
+        )
 
-    await asyncio.gather(*researcher_tasks, return_exceptions=True)
+    results = await asyncio.gather(*researcher_tasks, return_exceptions=True)
+    for i, r in enumerate(results):
+        if isinstance(r, (asyncio.TimeoutError, Exception)):
+            logger.warning("researcher_failed", agent_id=f"R{i+1}", error=str(r)[:200])
+            await emit("agent_timeout", {"agent_id": f"R{i+1}", "error": str(r)[:100]})
 
     # 5. IOC Extraction
     ioc_extractor = IOCExtractorAgent(llm=llm, emit=emit)
-    await ioc_extractor.run(memory)
+    try:
+        await asyncio.wait_for(ioc_extractor.run(memory), timeout=_IOC_TIMEOUT)
+    except asyncio.TimeoutError:
+        logger.warning("ioc_extractor_timeout", task_id=task_id)
 
     # 6. Critic Review
     critic = CriticAgent(llm=llm, emit=emit)
-    await critic.run(memory)
+    try:
+        await asyncio.wait_for(critic.run(memory), timeout=_CRITIC_TIMEOUT)
+    except asyncio.TimeoutError:
+        logger.warning("critic_timeout", task_id=task_id)
 
-    # 7. Synthesis (streaming, timeout 120s)
+    # 7. Synthesis (streaming)
     synthesizer = SynthesisAgent(llm=llm, emit=emit)
     try:
         await asyncio.wait_for(synthesizer.run(memory), timeout=settings.synthesis_timeout_s)
     except asyncio.TimeoutError:
         logger.warning("synthesis_timeout", task_id=task_id)
-        # Use partial report if available
         if not memory.report_md:
             memory.report_md = synthesizer._fallback_report(memory)

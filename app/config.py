@@ -45,10 +45,10 @@ class Settings(BaseSettings):
 
     # Agent config
     researcher_count_default: int = 4
-    researcher_max_rounds: int = 3
+    researcher_max_rounds: int = 2
     enrichment_timeout_s: int = 15
     synthesis_timeout_s: int = 120
-    analysis_timeout_s: int = 480
+    analysis_timeout_s: int = 600
 
     # Data directories
     data_dir: str = "./data"
