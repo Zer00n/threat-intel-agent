@@ -19,7 +19,7 @@ router
   .on('/history/:id', (id) => renderHistoryDetail(container, id))
   .on('/settings', () => renderSettings(container))
   .on('/sources', () => renderSources(container))
-  .on('*', () => { container.innerHTML = '<div class="empty-state"><h2>Page not found</h2></div>'; })
+  .on('*', () => { container.innerHTML = '<div class="empty-state"><h2>页面未找到</h2></div>'; })
   .start();
 
 // Theme toggle

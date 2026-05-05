@@ -20,19 +20,19 @@ export function formatDate(iso) {
 
 export function formatDuration(seconds) {
   if (!seconds) return '';
-  if (seconds < 60) return `${seconds}s`;
-  return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
+  if (seconds < 60) return `${seconds}秒`;
+  return `${Math.floor(seconds / 60)}分 ${seconds % 60}秒`;
 }
 
 export function statusBadge(status) {
   const map = {
-    running: ['running', 'Running'],
-    completed: ['completed', 'Done'],
-    failed: ['failed', 'Failed'],
-    stopped: ['stopped', 'Stopped'],
-    interrupted: ['interrupted', 'Interrupted'],
-    timeout: ['failed', 'Timeout'],
-    budget_exceeded: ['warning', 'Budget'],
+    running: ['running', '运行中'],
+    completed: ['completed', '已完成'],
+    failed: ['failed', '失败'],
+    stopped: ['stopped', '已停止'],
+    interrupted: ['interrupted', '已中断'],
+    timeout: ['failed', '超时'],
+    budget_exceeded: ['warning', '预算超限'],
   };
   const [cls, label] = map[status] || ['info', status];
   return `<span class="status-dot status-${cls}"></span> ${label}`;
@@ -65,8 +65,8 @@ export function showToast(message, type = 'success') {
 export async function copyToClipboard(text) {
   try {
     await navigator.clipboard.writeText(text);
-    showToast('Copied to clipboard');
+    showToast('已复制到剪贴板');
   } catch {
-    showToast('Copy failed', 'error');
+    showToast('复制失败', 'error');
   }
 }

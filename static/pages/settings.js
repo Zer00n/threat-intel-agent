@@ -8,44 +8,44 @@ export async function renderSettings(container) {
   try {
     settings = await API.settings();
   } catch (err) {
-    showToast('Failed to load settings', 'error');
+    showToast('加载设置失败', 'error');
   }
 
   container.innerHTML = `
-    <h2 style="margin-bottom:var(--space-4)">Settings</h2>
+    <h2 style="margin-bottom:var(--space-4)">系统设置</h2>
 
     <div class="settings-group card">
-      <h3>API Keys</h3>
+      <h3>API 密钥</h3>
       <div class="form-row">
-        <label>NVD API Key</label>
-        <input id="set-nvd" class="input" type="password" placeholder="${settings.nvd_api_key || 'Not set'}">
+        <label>NVD API 密钥</label>
+        <input id="set-nvd" class="input" type="password" placeholder="${settings.nvd_api_key || '未设置'}">
       </div>
       <div class="form-row">
-        <label>GitHub Token</label>
-        <input id="set-gh" class="input" type="password" placeholder="${settings.github_token || 'Not set'}">
+        <label>GitHub 令牌</label>
+        <input id="set-gh" class="input" type="password" placeholder="${settings.github_token || '未设置'}">
       </div>
     </div>
 
     <div class="settings-group card">
-      <h3>Budget & Limits</h3>
+      <h3>预算与限制</h3>
       <div class="form-row">
-        <label>Monthly Budget (USD)</label>
+        <label>月度预算（美元）</label>
         <input id="set-budget" class="input" type="number" value="${settings.monthly_budget_usd || 50}">
       </div>
       <div class="form-row">
-        <label>Single Task Token Limit</label>
+        <label>单任务令牌上限</label>
         <input id="set-tokens" class="input" type="number" value="${settings.single_task_token_limit || 200000}">
       </div>
       <div class="form-row">
-        <label>Researcher Count</label>
+        <label>研究代理数量</label>
         <input id="set-researchers" class="input" type="number" value="${settings.researcher_count_default || 4}" min="1" max="5">
       </div>
     </div>
 
     <div class="settings-group card">
-      <h3>Display</h3>
+      <h3>显示设置</h3>
       <div class="form-row">
-        <label>Default TLP</label>
+        <label>默认 TLP</label>
         <select id="set-tlp" class="input" style="max-width:200px">
           ${['WHITE','GREEN','AMBER','AMBER+STRICT','RED'].map(t =>
             `<option value="${t}" ${settings.tlp_default === t ? 'selected' : ''}>${t}</option>`
@@ -53,12 +53,12 @@ export async function renderSettings(container) {
         </select>
       </div>
       <div class="form-row">
-        <label>Theme</label>
-        <button class="btn btn-sm" onclick="window.toggleTheme()">Toggle Light/Dark</button>
+        <label>主题</label>
+        <button class="btn btn-sm" onclick="window.toggleTheme()">切换亮色/暗色</button>
       </div>
     </div>
 
-    <button class="btn btn-primary" onclick="window._saveSettings()">Save Settings</button>
+    <button class="btn btn-primary" onclick="window._saveSettings()">保存设置</button>
   `;
 
   window._saveSettings = async () => {
@@ -74,7 +74,7 @@ export async function renderSettings(container) {
 
     try {
       await API.updateSettings(data);
-      showToast('Settings saved');
+      showToast('设置已保存');
       // Clear password fields
       document.getElementById('set-nvd').value = '';
       document.getElementById('set-gh').value = '';

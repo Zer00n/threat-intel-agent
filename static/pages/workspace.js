@@ -12,18 +12,18 @@ export function renderWorkspace(container) {
   container.innerHTML = `
     <div class="workspace-layout">
       <div class="input-section">
-        <h2 style="margin-bottom:var(--space-3)">New Threat Intelligence Analysis</h2>
+        <h2 style="margin-bottom:var(--space-3)">新建威胁情报分析</h2>
         <div class="input-row">
-          <textarea id="query-input" class="textarea" placeholder="Enter CVE ID, ATT&CK technique, APT group, IOC, or threat description..." rows="2"></textarea>
+          <textarea id="query-input" class="textarea" placeholder="输入 CVE ID、ATT&CK 技术、APT 组织、IOC 或威胁描述..." rows="2"></textarea>
           <div style="display:flex;flex-direction:column;gap:var(--space-2)">
-            <button id="btn-analyze" class="btn btn-primary" onclick="window._startAnalysis()">Analyze</button>
-            <button id="btn-stop" class="btn btn-danger" style="display:none" onclick="window._stopAnalysis()">Stop</button>
+            <button id="btn-analyze" class="btn btn-primary" onclick="window._startAnalysis()">开始分析</button>
+            <button id="btn-stop" class="btn btn-danger" style="display:none" onclick="window._stopAnalysis()">停止</button>
           </div>
         </div>
         <div class="input-meta">
           <span id="intent-preview"></span>
           <span id="token-counter" style="margin-left:auto"></span>
-          <button class="btn btn-sm" onclick="window.toggleTheme()">Toggle Theme</button>
+          <button class="btn btn-sm" onclick="window.toggleTheme()">切换主题</button>
         </div>
       </div>
       <div id="analysis-area" style="display:none">
@@ -40,7 +40,7 @@ export function renderWorkspace(container) {
           <button class="btn btn-sm" onclick="window._export('stix')">STIX</button>
           <button class="btn btn-sm" onclick="window._export('iocs')">IOC CSV</button>
           <button class="btn btn-sm" onclick="window._export('sigma')">Sigma</button>
-          <button class="btn btn-sm" onclick="window._export('zip')">Package All</button>
+          <button class="btn btn-sm" onclick="window._export('zip')">全部打包</button>
         </div>
       </div>
     </div>
@@ -58,31 +58,31 @@ export function renderWorkspace(container) {
 window._startAnalysis = async () => {
   const input = document.getElementById('query-input');
   const query = input.value.trim();
-  if (query.length < 3) { showToast('Query too short', 'error'); return; }
+  if (query.length < 3) { showToast('查询内容过短', 'error'); return; }
 
   const btn = document.getElementById('btn-analyze');
   const btnStop = document.getElementById('btn-stop');
   btn.disabled = true;
-  btn.textContent = 'Starting...';
+  btn.textContent = '启动中...';
 
   try {
     const result = await API.analyze(query);
     currentTaskId = result.task_id;
 
     document.getElementById('analysis-area').style.display = 'block';
-    document.getElementById('intent-preview').textContent = `Intent: ${result.intent_preview || 'detecting...'}`;
+    document.getElementById('intent-preview').textContent = `意图：${result.intent_preview || '识别中...'}`;
     btnStop.style.display = 'inline-flex';
     btn.style.display = 'none';
 
     document.getElementById('timeline').innerHTML = '';
-    document.getElementById('report-content').innerHTML = '<p style="color:var(--text-muted)">Connecting to analysis stream...</p>';
+    document.getElementById('report-content').innerHTML = '<p style="color:var(--text-muted)">正在连接分析流...</p>';
     document.getElementById('cursor').style.display = 'inline-block';
 
     startSSE(result.task_id);
   } catch (err) {
     showToast(err.message, 'error');
     btn.disabled = false;
-    btn.textContent = 'Analyze';
+    btn.textContent = '开始分析';
   }
 };
 
@@ -90,7 +90,7 @@ window._stopAnalysis = async () => {
   if (!currentTaskId) return;
   try {
     await API.stop(currentTaskId);
-    showToast('Analysis stopped');
+    showToast('分析已停止');
   } catch (err) {
     showToast(err.message, 'error');
   }
@@ -106,44 +106,44 @@ function startSSE(taskId) {
 
   const handlers = {
     intent_classified: (data) => {
-      addTimeline('Intent classified', `${data.intent} (confidence: ${data.confidence})`, 'info');
-      document.getElementById('intent-preview').textContent = `Intent: ${data.intent}`;
+      addTimeline('意图识别完成', `${data.intent}（置信度：${data.confidence}）`, 'info');
+      document.getElementById('intent-preview').textContent = `意图：${data.intent}`;
     },
     plan_result: (data) => {
-      addTimeline('Plan created', `${data.research_questions?.length || 0} questions, sources: ${data.authoritative_sources?.join(', ')}`, 'plan');
+      addTimeline('分析计划已创建', `${data.research_questions?.length || 0} 个问题，数据源：${data.authoritative_sources?.join(', ')}`, 'plan');
     },
     data_source_query: (data) => {
-      addTimeline(`Querying ${data.source.toUpperCase()}`, `Entity: ${data.entity}`, 'source');
+      addTimeline(`正在查询 ${data.source.toUpperCase()}`, `实体：${data.entity}`, 'source');
     },
     data_source_hit: (data) => {
-      updateTimelineLast(`${data.source.toUpperCase()} - found`, 'success');
+      updateTimelineLast(`${data.source.toUpperCase()} - 已找到`, 'success');
     },
     data_source_miss: (data) => {
-      updateTimelineLast(`${data.source.toUpperCase()} - not found`, 'warning');
+      updateTimelineLast(`${data.source.toUpperCase()} - 未找到`, 'warning');
     },
     data_source_error: (data) => {
-      updateTimelineLast(`${data.source.toUpperCase()} - error`, 'error');
+      updateTimelineLast(`${data.source.toUpperCase()} - 出错`, 'error');
     },
     enrichment_done: () => {
-      addTimeline('Enrichment complete', '', 'done');
+      addTimeline('信息丰富化完成', '', 'done');
     },
     agent_start: (data) => {
-      addTimeline(`Research ${data.agent_id}`, data.question, 'research');
+      addTimeline(`研究代理 ${data.agent_id}`, data.question, 'research');
     },
     searching: (data) => {
-      addTimeline(`  ${data.agent_id} searching`, `"${data.query}" (round ${data.round})`, 'search');
+      addTimeline(`  ${data.agent_id} 搜索中`, `"${data.query}"（第 ${data.round} 轮）`, 'search');
     },
     agent_done: (data) => {
-      updateTimelineLast(`${data.agent_id} done - ${data.findings_count} findings`, 'done');
+      updateTimelineLast(`${data.agent_id} 完成 - ${data.findings_count} 条发现`, 'done');
     },
     ioc_extracted: (data) => {
-      addTimeline('IOC extraction', `${data.ioc_count} IOCs found`, 'done');
+      addTimeline('IOC 提取', `${data.ioc_count} 个 IOC`, 'done');
     },
     critic_done: (data) => {
-      addTimeline('Critic review', `${data.issues_count} issues, confidence: ${data.overall_confidence}`, 'done');
+      addTimeline('评审完成', `${data.issues_count} 个问题，置信度：${data.overall_confidence}`, 'done');
     },
     synthesizing: () => {
-      addTimeline('Synthesis', 'Generating report...', 'research');
+      addTimeline('报告合成', '正在生成报告...', 'research');
     },
     report_chunk: (data) => {
       reportBuffer += data.content;
@@ -154,22 +154,22 @@ function startSSE(taskId) {
       document.getElementById('btn-stop').style.display = 'none';
       document.getElementById('export-bar').style.display = 'flex';
       document.getElementById('token-counter').textContent =
-        `Tokens: ${data.token_usage?.input || 0} in / ${data.token_usage?.output || 0} out | Cost: $${data.cost_usd || 0}`;
-      addTimeline('Complete', `Duration: ${data.duration_s}s`, 'done');
+        `令牌：${data.token_usage?.input || 0} 输入 / ${data.token_usage?.output || 0} 输出 | 费用：$${data.cost_usd || 0}`;
+      addTimeline('分析完成', `耗时：${data.duration_s}秒`, 'done');
       renderMarkdown();
     },
     error: (data) => {
       document.getElementById('cursor').style.display = 'none';
-      addTimeline('Error', data.message, 'error');
+      addTimeline('错误', data.message, 'error');
       showToast(data.message, 'error');
     },
     stopped: () => {
       document.getElementById('cursor').style.display = 'none';
       document.getElementById('btn-stop').style.display = 'none';
-      addTimeline('Stopped', 'Analysis was cancelled', 'warning');
+      addTimeline('已停止', '分析已取消', 'warning');
     },
     agent_error: (data) => {
-      addTimeline(`Error: ${data.agent_id}`, data.message, 'error');
+      addTimeline(`错误：${data.agent_id}`, data.message, 'error');
     },
   };
 

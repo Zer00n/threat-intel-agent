@@ -8,7 +8,7 @@ export async function renderHistoryDetail(container, id) {
     const data = await API.historyDetail(id);
     renderDetail(container, data);
   } catch (err) {
-    container.innerHTML = `<div class="empty-state"><h3>Analysis not found</h3><p>${err.message}</p></div>`;
+    container.innerHTML = `<div class="empty-state"><h3>未找到分析记录</h3><p>${err.message}</p></div>`;
   }
 }
 
@@ -29,24 +29,24 @@ function renderDetail(container, data) {
         <button class="btn btn-sm" onclick="window._exportDetail('pdf')">PDF</button>
         <button class="btn btn-sm" onclick="window._exportDetail('stix')">STIX</button>
         <button class="btn btn-sm" onclick="window._exportDetail('zip')">ZIP</button>
-        <button class="btn btn-sm btn-danger" onclick="window._deleteDetail()">Delete</button>
+        <button class="btn btn-sm btn-danger" onclick="window._deleteDetail()">删除</button>
       </div>
     </div>
 
     <div class="detail-meta">
-      <span>Created: ${formatDate(data.created_at)}</span>
-      ${data.duration_s ? `<span>Duration: ${formatDuration(data.duration_s)}</span>` : ''}
-      ${data.token_input ? `<span>Tokens: ${data.token_input} in / ${data.token_output} out</span>` : ''}
-      ${data.cost_usd ? `<span>Cost: $${data.cost_usd.toFixed(2)}</span>` : ''}
+      <span>创建时间：${formatDate(data.created_at)}</span>
+      ${data.duration_s ? `<span>耗时：${formatDuration(data.duration_s)}</span>` : ''}
+      ${data.token_input ? `<span>令牌：${data.token_input} 输入 / ${data.token_output} 输出</span>` : ''}
+      ${data.cost_usd ? `<span>费用：$${data.cost_usd.toFixed(2)}</span>` : ''}
     </div>
 
     <div class="tabs" id="detail-tabs">
-      <div class="tab active" data-tab="report">Report</div>
-      <div class="tab" data-tab="iocs">IOCs (${data.iocs?.length || 0})</div>
+      <div class="tab active" data-tab="report">分析报告</div>
+      <div class="tab" data-tab="iocs">IOC 指标 (${data.iocs?.length || 0})</div>
       <div class="tab" data-tab="techniques">ATT&CK (${data.attack_techniques?.length || 0})</div>
-      <div class="tab" data-tab="cves">CVEs (${data.cve_refs?.length || 0})</div>
-      <div class="tab" data-tab="sources">Sources (${data.sources_used?.length || 0})</div>
-      <div class="tab" data-tab="trace">Trace</div>
+      <div class="tab" data-tab="cves">CVE 漏洞 (${data.cve_refs?.length || 0})</div>
+      <div class="tab" data-tab="sources">数据来源 (${data.sources_used?.length || 0})</div>
+      <div class="tab" data-tab="trace">执行追踪</div>
     </div>
 
     <div id="tab-content"></div>
@@ -76,10 +76,10 @@ function renderDetail(container, data) {
 
   window._exportDetail = (format) => API.download(`/export/${format}/${data.id}`);
   window._deleteDetail = async () => {
-    if (!confirm('Delete this analysis?')) return;
+    if (!confirm('确定删除此分析？')) return;
     try {
       await API.deleteHistory(data.id);
-      showToast('Deleted');
+      showToast('已删除');
       window.location.hash = '#/history';
     } catch (err) {
       showToast(err.message, 'error');
@@ -96,14 +96,14 @@ function renderReportTab(data) {
       el.innerHTML = `<pre style="white-space:pre-wrap">${data.report_md}</pre>`;
     }
   } else {
-    el.innerHTML = '<div class="empty-state"><p>No report generated</p></div>';
+    el.innerHTML = '<div class="empty-state"><p>未生成报告</p></div>';
   }
 }
 
 function renderIOCSTab(data) {
   const el = document.getElementById('tab-content');
   if (!data.iocs?.length) {
-    el.innerHTML = '<div class="empty-state"><p>No IOCs extracted</p></div>';
+    el.innerHTML = '<div class="empty-state"><p>未提取到 IOC</p></div>';
     return;
   }
 
@@ -115,12 +115,12 @@ function renderIOCSTab(data) {
 
   el.innerHTML = `
     <div style="margin-bottom:var(--space-3)">
-      <button class="btn btn-sm" onclick="window._copyAllIOCs()">Copy All (defanged)</button>
+      <button class="btn btn-sm" onclick="window._copyAllIOCs()">复制全部（脱敏）</button>
     </div>
     ${Object.entries(grouped).map(([type, iocs]) => `
       <h3 style="margin:var(--space-4) 0 var(--space-2)">${type.toUpperCase()} (${iocs.length})</h3>
       <table>
-        <thead><tr><th>Value</th><th>Defanged</th><th>Confidence</th><th>Context</th></tr></thead>
+        <thead><tr><th>原始值</th><th>脱敏值</th><th>置信度</th><th>上下文</th></tr></thead>
         <tbody>
           ${iocs.map(ioc => `
             <tr>
@@ -144,12 +144,12 @@ function renderIOCSTab(data) {
 function renderTechniquesTab(data) {
   const el = document.getElementById('tab-content');
   if (!data.attack_techniques?.length) {
-    el.innerHTML = '<div class="empty-state"><p>No ATT&CK techniques mapped</p></div>';
+    el.innerHTML = '<div class="empty-state"><p>未映射 ATT&CK 技术</p></div>';
     return;
   }
   el.innerHTML = `
     <table>
-      <thead><tr><th>Technique</th><th>Name</th><th>Tactic</th><th>Confidence</th></tr></thead>
+      <thead><tr><th>技术 ID</th><th>名称</th><th>战术</th><th>置信度</th></tr></thead>
       <tbody>
         ${data.attack_techniques.map(t => `
           <tr>
@@ -167,7 +167,7 @@ function renderTechniquesTab(data) {
 function renderCVETab(data) {
   const el = document.getElementById('tab-content');
   if (!data.cve_refs?.length) {
-    el.innerHTML = '<div class="empty-state"><p>No CVE references</p></div>';
+    el.innerHTML = '<div class="empty-state"><p>无 CVE 参考</p></div>';
     return;
   }
   el.innerHTML = `
@@ -178,7 +178,7 @@ function renderCVETab(data) {
           <tr>
             <td><code>${c.cve_id}</code></td>
             <td>${c.cvss_v3_score ?? 'N/A'}</td>
-            <td>${c.is_in_kev ? '<span class="badge badge-error">KEV</span>' : 'No'}</td>
+            <td>${c.is_in_kev ? '<span class="badge badge-error">KEV</span>' : '否'}</td>
             <td>${c.epss_score ?? 'N/A'}</td>
           </tr>
         `).join('')}
@@ -190,12 +190,12 @@ function renderCVETab(data) {
 function renderSourcesTab(data) {
   const el = document.getElementById('tab-content');
   if (!data.sources_used?.length) {
-    el.innerHTML = '<div class="empty-state"><p>No sources recorded</p></div>';
+    el.innerHTML = '<div class="empty-state"><p>未记录数据来源</p></div>';
     return;
   }
   el.innerHTML = `
     <table>
-      <thead><tr><th>Domain</th><th>Type</th><th>Trusted</th><th>URL</th></tr></thead>
+      <thead><tr><th>域名</th><th>类型</th><th>可信</th><th>链接</th></tr></thead>
       <tbody>
         ${data.sources_used.map(s => `
           <tr>
@@ -213,7 +213,7 @@ function renderSourcesTab(data) {
 function renderTraceTab(data) {
   const el = document.getElementById('tab-content');
   if (!data.agent_logs?.length) {
-    el.innerHTML = '<div class="empty-state"><p>No trace data</p></div>';
+    el.innerHTML = '<div class="empty-state"><p>无追踪数据</p></div>';
     return;
   }
   el.innerHTML = `
