@@ -1,0 +1,10 @@
+{
+  "research_questions": [
+    "What are the key technical details of this threat?",
+    "What is the current exploitation status?",
+    "What are the recommended mitigations?",
+    "What related threats or IOCs should be monitored?"
+  ],
+  "authoritative_sources": ["nvd", "kev", "epss"],
+  "rationale": "Generic query uses broad authoritative sources for maximum coverage"
+}

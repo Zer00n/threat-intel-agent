@@ -1,0 +1,12 @@
+{
+  "research_questions": [
+    "What is the technical description and affected software for {cve_id}?",
+    "What CVSS score, CWE classification, and attack vector does {cve_id} have?",
+    "Is {cve_id} in the CISA KEV catalog and what is the remediation timeline?",
+    "What is the EPSS exploitation probability score for {cve_id}?",
+    "Are there known exploits, PoC code, or in-the-wild attacks for {cve_id}?",
+    "What are the recommended mitigations and patches for {cve_id}?"
+  ],
+  "authoritative_sources": ["nvd", "kev", "epss", "ghsa"],
+  "rationale": "CVE vulnerability analysis requires NVD metadata, KEV status, EPSS score, and open source research for exploitation context"
+}

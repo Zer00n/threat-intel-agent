@@ -1,0 +1,11 @@
+{
+  "research_questions": [
+    "What is the background and motivation of threat actor {actor_name}?",
+    "What ATT&CK techniques does {actor_name} commonly use?",
+    "What malware families are associated with {actor_name}?",
+    "What CVEs has {actor_name} exploited recently?",
+    "What are the known IOCs (IPs, domains, hashes) linked to {actor_name}?"
+  ],
+  "authoritative_sources": ["attck", "kev"],
+  "rationale": "Threat actor profiling requires ATT&CK group data and cross-referencing with KEV for recent exploits"
+}

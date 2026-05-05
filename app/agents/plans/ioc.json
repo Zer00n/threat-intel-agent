@@ -1,0 +1,9 @@
+{
+  "research_questions": [
+    "What is the reputation and history of this IOC?",
+    "What malware or threat campaigns are associated with this IOC?",
+    "What geographic and network context surrounds this IOC?"
+  ],
+  "authoritative_sources": [],
+  "rationale": "IOC analysis relies primarily on open source intelligence and web search"
+}

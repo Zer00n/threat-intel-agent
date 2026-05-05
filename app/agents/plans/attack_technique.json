@@ -1,0 +1,11 @@
+{
+  "research_questions": [
+    "What is the description and classification of ATT&CK technique {technique_id}?",
+    "Which threat actor groups are known to use {technique_id}?",
+    "What software/tools are associated with {technique_id}?",
+    "What are the detection recommendations for {technique_id}?",
+    "Are there Sigma rules or detection signatures for {technique_id}?"
+  ],
+  "authoritative_sources": ["attck"],
+  "rationale": "ATT&CK technique analysis uses the local STIX bundle for classification and associations"
+}

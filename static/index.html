@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Threat Intel Agent</title>
+<link rel="stylesheet" href="/assets/tokens.css">
+<link rel="stylesheet" href="/assets/components.css">
+<link rel="stylesheet" href="/assets/app.css">
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/highlight.js@11/lib/core.min.js"></script>
+</head>
+<body>
+<div id="app">
+  <nav id="sidebar">
+    <div class="sidebar-header">
+      <h1 class="logo">TI Agent</h1>
+      <span class="version">v2.0</span>
+    </div>
+    <div class="nav-links">
+      <a href="#/" class="nav-link active" data-page="workspace">New Analysis</a>
+      <a href="#/history" class="nav-link" data-page="history">History</a>
+      <a href="#/sources" class="nav-link" data-page="sources">Sources</a>
+      <a href="#/settings" class="nav-link" data-page="settings">Settings</a>
+    </div>
+    <div id="history-mini" class="history-mini"></div>
+  </nav>
+  <main id="main-content">
+    <div id="page-container"></div>
+  </main>
+</div>
+<div id="toast-container"></div>
+<script type="module" src="/lib/app.js"></script>
+</body>
+</html>
