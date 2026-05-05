@@ -2,6 +2,10 @@
 
 Enterprise SOC threat intelligence research assistant. Combines authoritative data sources (NVD, CISA KEV, EPSS, MITRE ATT&CK) with AI to generate structured threat intelligence reports.
 
+## System Architecture
+
+![System Architecture](docs/ti_agent_system_architecture_layers.svg)
+
 ## Quick Start
 
 ```bash
