@@ -81,14 +81,15 @@ async def start_analysis(req: AnalyzeRequest, db: AsyncSession = Depends(get_db)
 
     # Start background analysis
     llm = LLMClient()
-    event_queue = asyncio.Queue()
+    _collected_events: list[dict] = []  # collect events for AgentLog persistence
 
     async def emit_fn(event_type: str, data: dict):
         from app.routers.stream import push_event
         await push_event(task_id, event_type, data)
+        _collected_events.append({"event_type": event_type, "data": data})
 
     task = asyncio.create_task(
-        _run_analysis_wrapper(task_id, query, llm, emit_fn, req.tlp, req.force_intent, db),
+        _run_analysis_wrapper(task_id, query, llm, emit_fn, req.tlp, req.force_intent, db, _collected_events),
         name=f"analysis-{task_id}",
     )
     task_manager.register(task_id, task)
@@ -170,13 +171,15 @@ async def refresh_analysis(task_id: str, db: AsyncSession = Depends(get_db)):
 
     # Start background analysis with old report context
     llm = LLMClient()
+    _collected_events: list[dict] = []
 
     async def emit_fn(event_type: str, data: dict):
         from app.routers.stream import push_event
         await push_event(new_task_id, event_type, data)
+        _collected_events.append({"event_type": event_type, "data": data})
 
     task = asyncio.create_task(
-        _run_analysis_wrapper(new_task_id, refresh_query, llm, emit_fn, original.tlp, None, db),
+        _run_analysis_wrapper(new_task_id, refresh_query, llm, emit_fn, original.tlp, None, db, _collected_events),
         name=f"analysis-{new_task_id}",
     )
     task_manager.register(new_task_id, task)
@@ -196,6 +199,7 @@ async def _run_analysis_wrapper(
     tlp: str,
     force_intent: str | None,
     db: AsyncSession,
+    collected_events: list[dict] | None = None,
 ):
     try:
         result = await run_analysis(
@@ -206,6 +210,7 @@ async def _run_analysis_wrapper(
             tlp=tlp,
             force_intent=force_intent,
             db=db,
+            agent_logs=collected_events,
         )
 
         # Update final status (persistence module handles detailed data)

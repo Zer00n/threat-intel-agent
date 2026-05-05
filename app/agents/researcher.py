@@ -52,8 +52,8 @@ _SYSTEM_PROMPT = """You are a threat intelligence researcher. Investigate the gi
 - Use web_search to find authoritative information
 - Each finding MUST have a source_url
 - Assign confidence: High (official source, multiple confirmations), Medium (single credible source), Low (unverified)
-- After completing your research, call submit_findings with your results
-- Maximum {max_rounds} search rounds"""
+- After EACH search round, you MUST call submit_findings with all findings so far. Do NOT wait until the last round.
+- You have at most {max_rounds} search rounds. Call submit_findings as soon as you have enough information."""
 
 
 class ResearchAgent(BaseAgent):
@@ -154,6 +154,34 @@ class ResearchAgent(BaseAgent):
         memory.findings.extend(findings)
 
         if not findings:
+            # Fallback: ask LLM to submit findings from what it gathered
+            try:
+                messages.append({"role": "user", "content": "You have used all search rounds. Now call submit_findings with whatever information you have gathered. Even partial findings are better than none."})
+                resp = await self._llm.complete(
+                    system=system,
+                    messages=messages,
+                    tools=[SUBMIT_TOOL],
+                    max_tokens=2048,
+                )
+                if resp.tool_name == "submit_findings":
+                    for f in resp.tool_use.get("findings", []):
+                        source_url = f.get("source_url", "")
+                        findings.append(Finding(
+                            id=str(uuid.uuid4()),
+                            claim=f.get("claim", ""),
+                            detail=f.get("detail", ""),
+                            source_url=source_url,
+                            source_name=f.get("source_name", ""),
+                            source_type="open",
+                            confidence=f.get("confidence", "Medium"),
+                        ))
+                        if source_url and source_url.startswith("http"):
+                            memory.sources_used.add(source_url)
+                    memory.findings.extend(findings)
+            except Exception as e:
+                await self.emit("agent_error", {"agent_id": self._agent_id, "message": str(e)})
+
+        if not findings:
             await self.emit("agent_done", {
                 "agent_id": self._agent_id,
                 "rounds": rounds_used,
@@ -163,7 +191,13 @@ class ResearchAgent(BaseAgent):
         return AgentResult(data={"findings": len(findings), "rounds": rounds_used})
 
     async def _mock_search(self, query: str) -> list[dict[str, Any]]:
-        return [{"title": f"Search result for: {query}", "url": "https://example.com", "snippet": "No real search implemented yet"}]
+        """Real web search using DuckDuckGo."""
+        from app.agents.web_search import web_search
+        results = await web_search(query, max_results=5)
+        if results:
+            return results
+        # Fallback: use LLM knowledge if search fails
+        return [{"title": f"Search unavailable for: {query}", "url": "", "snippet": "Web search returned no results. Use your training knowledge to answer."}]
 
 
 def _format_results(results: list[dict[str, Any]]) -> str:

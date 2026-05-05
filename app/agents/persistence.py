@@ -2,11 +2,12 @@
 from __future__ import annotations
 
 import json
+from typing import Any
 
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.agents.memory import Memory
+from app.agents.memory import AttckMapping, Memory
 from app.db.models import (
     AgentLog,
     Analysis,
@@ -29,9 +30,13 @@ async def persist_analysis_results(
     token_output: int = 0,
     cost_usd: float = 0.0,
     duration_s: float = 0.0,
+    agent_events: list[dict] | None = None,
 ) -> None:
     """Write all pipeline outputs to database tables."""
     now = now_iso()
+
+    # 0. Pre-process: extract ATT&CK techniques from enrichment if not already populated
+    _extract_attck_from_enrichment(memory)
 
     # 1. Update analyses table
     from sqlalchemy import update
@@ -124,9 +129,102 @@ async def persist_analysis_results(
             accessed_at=now,
         ))
 
+    # 7. Persist AgentLogs from SSE events
+    if agent_events:
+        for seq, ev in enumerate(agent_events, 1):
+            db.add(AgentLog(
+                analysis_id=task_id,
+                sequence=seq,
+                event_type=ev.get("event_type", "unknown"),
+                agent_name=_extract_agent_name(ev),
+                payload=json.dumps(ev.get("data", {}), ensure_ascii=False) if ev.get("data") else None,
+                created_at=now,
+            ))
+
     await db.commit()
     logger.info("analysis_persisted", task_id=task_id,
                 findings=len(memory.findings),
                 iocs=len(memory.iocs),
                 cves=len(memory.cve_refs),
-                techniques=len(memory.attck_techniques))
+                techniques=len(memory.attck_techniques),
+                logs=len(agent_events) if agent_events else 0)
+
+
+def _extract_agent_name(event: dict) -> str | None:
+    """Extract agent name from event data for the agent_name column."""
+    data = event.get("data", {})
+    agent_id = data.get("agent_id") or data.get("agent_name")
+    if agent_id:
+        return str(agent_id)
+    # Map event types to agent names
+    event_type = event.get("event_type", "")
+    _EVENT_AGENT_MAP = {
+        "intent_classified": "IntentClassifier",
+        "plan_result": "PlannerAgent",
+        "data_source_query": "EnrichmentAgent",
+        "data_source_hit": "EnrichmentAgent",
+        "data_source_miss": "EnrichmentAgent",
+        "data_source_error": "EnrichmentAgent",
+        "enrichment_done": "EnrichmentAgent",
+        "ioc_extracting": "IOCExtractorAgent",
+        "ioc_extracted": "IOCExtractorAgent",
+        "critic_review": "CriticAgent",
+        "critic_done": "CriticAgent",
+        "synthesizing": "SynthesisAgent",
+        "done": "Orchestrator",
+        "error": "Orchestrator",
+        "stopped": "Orchestrator",
+    }
+    return _EVENT_AGENT_MAP.get(event_type)
+
+
+def _extract_attck_from_enrichment(memory: Memory) -> None:
+    """Extract ATT&CK techniques from enrichment data if not already populated."""
+    if memory.attck_techniques:
+        return  # already populated by an agent
+
+    attck_data = memory.enrichment.get("attck")
+    if not attck_data or not isinstance(attck_data, dict):
+        return
+
+    # Handle technique objects from ATT&CK enrichment
+    if attck_data.get("found") is False:
+        return
+
+    technique_id = attck_data.get("external_references", [{}])[0].get("external_id", "") if attck_data.get("external_references") else ""
+    if not technique_id:
+        # Try alternative fields
+        technique_id = attck_data.get("id", "")
+
+    technique_name = attck_data.get("name", "")
+    tactics = attck_data.get("tactic", []) or attck_data.get("kill_chain_phases", [])
+
+    if technique_id:
+        tactic_name = ""
+        if isinstance(tactics, list) and tactics:
+            if isinstance(tactics[0], dict):
+                tactic_name = tactics[0].get("phase_name", "") or tactics[0].get("tactic", "")
+            else:
+                tactic_name = str(tactics[0])
+        elif isinstance(tactics, str):
+            tactic_name = tactics
+
+        memory.attck_techniques.append(AttckMapping(
+            technique_id=technique_id,
+            technique_name=technique_name,
+            tactic=tactic_name,
+            confidence="Medium",
+            rationale="Extracted from ATT&CK enrichment data",
+        ))
+
+    # Also handle group/software objects that may reference techniques
+    for ref in attck_data.get("external_references", []):
+        ref_id = ref.get("external_id", "")
+        if ref_id.startswith("T") and ref_id != technique_id:
+            memory.attck_techniques.append(AttckMapping(
+                technique_id=ref_id,
+                technique_name=ref.get("source_name", ""),
+                tactic="",
+                confidence="Low",
+                rationale="Referenced in enrichment context",
+            ))

@@ -37,6 +37,7 @@ async def run_analysis(
     tlp: str = "GREEN",
     force_intent: str | None = None,
     db=None,
+    agent_logs: list[dict] | None = None,
 ) -> dict[str, Any]:
     memory = Memory()
     memory.extra["query"] = query
@@ -74,6 +75,7 @@ async def run_analysis(
                     token_output=llm.total_usage.output_tokens,
                     cost_usd=llm.total_usage.cost_usd,
                     duration_s=duration,
+                    agent_events=agent_logs,
                 )
             except Exception as e:
                 logger.warning("persist_failed", task_id=task_id, error=str(e))
@@ -103,6 +105,7 @@ async def run_analysis(
                     token_output=llm.total_usage.output_tokens,
                     cost_usd=llm.total_usage.cost_usd,
                     duration_s=duration,
+                    agent_events=agent_logs,
                 )
             except Exception:
                 pass
@@ -120,6 +123,7 @@ async def run_analysis(
                     token_input=llm.total_usage.input_tokens,
                     token_output=llm.total_usage.output_tokens,
                     cost_usd=llm.total_usage.cost_usd,
+                    agent_events=agent_logs,
                 )
             except Exception:
                 pass
@@ -142,6 +146,7 @@ async def run_analysis(
                     token_input=llm.total_usage.input_tokens,
                     token_output=llm.total_usage.output_tokens,
                     cost_usd=llm.total_usage.cost_usd,
+                    agent_events=agent_logs,
                 )
             except Exception:
                 pass
