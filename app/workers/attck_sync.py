@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from pathlib import Path
 
 import httpx
@@ -23,7 +24,7 @@ async def run_periodic() -> None:
         await asyncio.sleep(_INTERVAL)
 
 
-async def sync_attck() -> bool:
+async def sync_attck() -> dict:
     target = settings.attck_bundle_file
     target.parent.mkdir(parents=True, exist_ok=True)
 
@@ -32,5 +33,16 @@ async def sync_attck() -> bool:
         resp.raise_for_status()
         target.write_bytes(resp.content)
 
-    logger.info("attck_synced", path=str(target), size=target.stat().st_size)
-    return True
+    data = json.loads(target.read_text(encoding="utf-8"))
+    objects = data.get("objects", [])
+    summary = {
+        "success": True,
+        "objects_count": len(objects),
+        "attack_patterns": sum(1 for obj in objects if obj.get("type") == "attack-pattern"),
+        "groups": sum(1 for obj in objects if obj.get("type") == "intrusion-set"),
+        "software": sum(1 for obj in objects if obj.get("type") in {"malware", "tool"}),
+        "size_bytes": target.stat().st_size,
+        "path": str(target),
+    }
+    logger.info("attck_synced", **summary)
+    return summary

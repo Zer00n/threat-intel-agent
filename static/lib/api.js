@@ -39,6 +39,8 @@ const API = {
 
   stop: (taskId) => API.post(`/analyze/${taskId}/stop`),
 
+  switchIntent: (taskId, intent) => API.post(`/analyze/${taskId}/switch_intent`, { intent }),
+
   history: (params = {}) => {
     const q = new URLSearchParams(params).toString();
     return API.get(`/history${q ? '?' + q : ''}`);

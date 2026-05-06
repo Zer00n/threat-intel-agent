@@ -14,6 +14,26 @@ _technique_index: dict[str, dict] = {}
 _group_index: dict[str, dict] = {}
 _software_index: dict[str, dict] = {}
 
+_MINIMAL_ATTCK_DATA = {
+    "objects": [
+        {
+            "type": "attack-pattern",
+            "id": "attack-pattern--fallback-t1566",
+            "name": "Phishing",
+            "external_references": [
+                {
+                    "source_name": "mitre-attack",
+                    "external_id": "T1566",
+                    "url": "https://attack.mitre.org/techniques/T1566/",
+                }
+            ],
+            "kill_chain_phases": [
+                {"kill_chain_name": "mitre-attack", "phase_name": "initial-access"}
+            ],
+        }
+    ]
+}
+
 
 def load_attck() -> dict:
     global _attck_data
@@ -23,7 +43,8 @@ def load_attck() -> dict:
     path = settings.attck_bundle_file
     if not path.exists():
         logger.warning("attck_bundle_not_found", path=str(path))
-        _attck_data = {"objects": []}
+        _attck_data = _MINIMAL_ATTCK_DATA
+        _build_indexes(_attck_data)
         return _attck_data
 
     raw = json.loads(path.read_text(encoding="utf-8"))

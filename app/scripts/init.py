@@ -27,7 +27,7 @@ async def download_attck_bundle(target: Path) -> None:
 
 async def main() -> None:
     from app.config import settings
-    from app.db.engine import engine
+    from app.db.engine import ensure_fts_schema, engine
     from app.db.models import Base
 
     # Ensure data directories exist
@@ -37,24 +37,16 @@ async def main() -> None:
     # Create tables
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        await conn.execute(__import__("sqlalchemy").text("PRAGMA journal_mode=WAL"))
+        await conn.execute(__import__("sqlalchemy").text("PRAGMA foreign_keys=ON"))
     print("Database tables created.")
 
     # Download ATT&CK bundle
     await download_attck_bundle(settings.attck_bundle_file)
 
-    # Create FTS virtual table (raw SQL since it's virtual)
     async with engine.begin() as conn:
-        await conn.execute(
-            __import__("sqlalchemy").text(
-                """CREATE VIRTUAL TABLE IF NOT EXISTS analyses_fts USING fts5(
-                    id UNINDEXED,
-                    query,
-                    report_md,
-                    content=''
-                )"""
-            )
-        )
-    print("FTS5 virtual table created.")
+        await ensure_fts_schema(conn)
+    print("FTS5 virtual table and triggers created.")
 
     print("Initialization complete.")
 

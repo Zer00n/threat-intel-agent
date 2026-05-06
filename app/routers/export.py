@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pydantic import BaseModel
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import Response
 from sqlalchemy import select
@@ -10,6 +11,11 @@ from app.db.models import Analysis
 from app.utils.time import now_iso
 
 router = APIRouter(prefix="/export", tags=["export"])
+
+
+class BatchExportRequest(BaseModel):
+    ids: list[str]
+    formats: list[str] = ["md", "stix", "iocs", "sigma"]
 
 
 async def _get_analysis(analysis_id: str, db: AsyncSession):
@@ -43,7 +49,11 @@ async def export_markdown(analysis_id: str, db: AsyncSession = Depends(get_db)):
 async def export_pdf(analysis_id: str, db: AsyncSession = Depends(get_db)):
     analysis = await _get_analysis(analysis_id, db)
     from app.exporters.pdf import export_pdf as do_export
-    content, filename = await do_export(analysis)
+    try:
+        content, filename = await do_export(analysis)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"PDF export failed: {e}") from e
+    await _log_export(db, analysis_id, "pdf", filename)
     return Response(
         content=content,
         media_type="application/pdf",
@@ -56,6 +66,7 @@ async def export_stix(analysis_id: str, db: AsyncSession = Depends(get_db)):
     analysis = await _get_analysis(analysis_id, db)
     from app.exporters.stix import export_stix as do_export
     content, filename = await do_export(analysis)
+    await _log_export(db, analysis_id, "stix", filename)
     return Response(
         content=content,
         media_type="application/json",
@@ -74,6 +85,7 @@ async def export_iocs(
     analysis = await _get_analysis(analysis_id, db)
     from app.exporters.ioc_csv import export_ioc_csv as do_export
     content, filename = await do_export(analysis, defanged=defanged, min_confidence=min_confidence)
+    await _log_export(db, analysis_id, "iocs", filename)
     return Response(
         content=content,
         media_type="text/csv; charset=utf-8",
@@ -86,6 +98,7 @@ async def export_sigma(analysis_id: str, db: AsyncSession = Depends(get_db)):
     analysis = await _get_analysis(analysis_id, db)
     from app.exporters.sigma import export_sigma as do_export
     content, filename = await do_export(analysis)
+    await _log_export(db, analysis_id, "sigma", filename)
     return Response(
         content=content,
         media_type="text/yaml; charset=utf-8",
@@ -98,8 +111,52 @@ async def export_zip(analysis_id: str, db: AsyncSession = Depends(get_db)):
     analysis = await _get_analysis(analysis_id, db)
     from app.exporters.zip_bundle import export_zip as do_export
     content, filename = await do_export(analysis)
+    await _log_export(db, analysis_id, "zip", filename)
     return Response(
         content=content,
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.post("/batch")
+async def export_batch(req: BatchExportRequest, db: AsyncSession = Depends(get_db)):
+    """Export multiple analyses into a single ZIP archive."""
+    import io
+    import zipfile
+
+    allowed = {"md", "pdf", "stix", "iocs", "sigma", "zip"}
+    formats = [fmt for fmt in req.formats if fmt in allowed]
+    if not req.ids:
+        raise HTTPException(status_code=422, detail="ids cannot be empty")
+    if not formats:
+        raise HTTPException(status_code=422, detail="formats cannot be empty")
+
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+        for analysis_id in req.ids:
+            analysis = await _get_analysis(analysis_id, db)
+            for fmt in formats:
+                if fmt == "md":
+                    from app.exporters.markdown import export_markdown as do_export
+                elif fmt == "pdf":
+                    from app.exporters.pdf import export_pdf as do_export
+                elif fmt == "stix":
+                    from app.exporters.stix import export_stix as do_export
+                elif fmt == "iocs":
+                    from app.exporters.ioc_csv import export_ioc_csv as do_export
+                elif fmt == "sigma":
+                    from app.exporters.sigma import export_sigma as do_export
+                else:
+                    from app.exporters.zip_bundle import export_zip as do_export
+
+                content, filename = await do_export(analysis)
+                zf.writestr(f"{analysis_id}/{filename}", content)
+
+    filename = f"ti-batch-export-{now_iso().replace(':', '').replace('-', '').replace('T', '-')[:13]}.zip"
+    await _log_export(db, ",".join(req.ids), "batch", filename)
+    return Response(
+        content=buffer.getvalue(),
         media_type="application/zip",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )

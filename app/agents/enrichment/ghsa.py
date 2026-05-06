@@ -38,11 +38,12 @@ class GhsaSource(EnrichmentSource):
         self._token = settings.github_token
 
     async def fetch(self, entity: str) -> SourceResult:
-        if not self._token:
+        token = await self._get_token()
+        if not token:
             return SourceResult(source=self.name, success=False, error="GITHUB_TOKEN not configured")
 
         t0 = time.monotonic()
-        headers = {"Authorization": f"bearer {self._token}"}
+        headers = {"Authorization": f"bearer {token}"}
         async with self._limiter:
             try:
                 resp = await self._client.post(
@@ -62,15 +63,28 @@ class GhsaSource(EnrichmentSource):
                 return SourceResult(source=self.name, success=False, error=str(e), response_time_ms=elapsed)
 
     async def health_check(self) -> bool:
-        if not self._token:
+        token = await self._get_token()
+        if not token:
             return False
         try:
             resp = await self._client.post(
                 GHSA_GRAPHQL,
                 json={"query": "{ viewer { login } }"},
-                headers={"Authorization": f"bearer {self._token}"},
+                headers={"Authorization": f"bearer {token}"},
                 timeout=10,
             )
             return resp.status_code == 200
         except Exception:
             return False
+
+    async def _get_token(self) -> str:
+        if self._token:
+            return self._token
+        try:
+            from app.db.engine import async_session_factory
+            from app.db.repositories.settings import get_setting
+
+            async with async_session_factory() as db:
+                return await get_setting(db, "github_token") or ""
+        except Exception:
+            return ""

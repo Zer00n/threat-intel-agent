@@ -16,6 +16,7 @@ from app.agents.critic import CriticAgent
 from app.agents.synthesis import SynthesisAgent
 from app.agents.llm_client import BudgetExceededError, LLMClient
 from app.agents.memory import Memory
+from app.agents.search_cache import SearchCache
 from app.config import settings
 from app.utils.time import now_iso
 
@@ -177,6 +178,15 @@ async def _run_pipeline(
         await emit("agent_timeout", {"agent_id": "classifier", "timeout_s": _INTENT_TIMEOUT})
     if force_intent:
         memory.intent.intent = force_intent
+    else:
+        from app.task_manager import task_manager
+        override = await task_manager.wait_for_intent_override(task_id, timeout=5)
+        if override:
+            memory.intent.intent = override
+            await emit("intent_switched", {
+                "intent": override,
+                "message": "User selected a different research path",
+            })
 
     # 2. Planning
     planner = PlannerAgent(llm=llm, emit=emit)
@@ -199,9 +209,10 @@ async def _run_pipeline(
         len(memory.plan.research_questions),
     )
     researcher_tasks = []
+    shared_search_cache = SearchCache()
     for i in range(researcher_count):
         question = memory.plan.research_questions[i] if i < len(memory.plan.research_questions) else ""
-        agent = ResearchAgent(agent_id=f"R{i+1}", llm=llm, emit=emit)
+        agent = ResearchAgent(agent_id=f"R{i+1}", llm=llm, emit=emit, search_cache=shared_search_cache)
         researcher_tasks.append(
             asyncio.wait_for(agent.run(memory, question=question), timeout=_RESEARCHER_TIMEOUT)
         )

@@ -27,6 +27,18 @@ _INJECTION_PATTERNS = re.compile(
     r"ignore\s+(previous|all)\s+instructions|system\s*prompt|忽略指令|ignore\s+instructions",
     re.IGNORECASE,
 )
+_ALLOWED_INTENTS = {
+    "cve",
+    "attack_technique",
+    "threat_actor",
+    "malware",
+    "ioc_hash",
+    "ioc_ip",
+    "ioc_domain",
+    "generic",
+    "vulnerability_generic",
+    "incident_description",
+}
 
 
 @router.post("/analyze", response_model=AnalyzeResponse)
@@ -57,7 +69,8 @@ async def start_analysis(req: AnalyzeRequest, db: AsyncSession = Depends(get_db)
     query = _sanitize_query(req.query)
 
     # Detect injection
-    if _INJECTION_PATTERNS.search(query):
+    injection_detected = bool(_INJECTION_PATTERNS.search(query))
+    if injection_detected:
         logger.warning("injection_detected", query=query[:100])
 
     task_id = str(uuid.uuid4())
@@ -87,6 +100,7 @@ async def start_analysis(req: AnalyzeRequest, db: AsyncSession = Depends(get_db)
         from app.routers.stream import push_event
         await push_event(task_id, event_type, data)
         _collected_events.append({"event_type": event_type, "data": data})
+        await persist_agent_event(task_id, len(_collected_events), event_type, data)
 
     task = asyncio.create_task(
         _run_analysis_wrapper(task_id, query, llm, emit_fn, req.tlp, req.force_intent, db, _collected_events),
@@ -97,6 +111,8 @@ async def start_analysis(req: AnalyzeRequest, db: AsyncSession = Depends(get_db)
     # Audit log (PRD §14.4)
     from app.db.repositories.audit import log_event
     await log_event(db, "analysis_started", {"task_id": task_id, "query": query[:100]})
+    if injection_detected:
+        await log_event(db, "injection_detected", {"task_id": task_id, "query": query[:100]})
 
     return AnalyzeResponse(task_id=task_id, status="running")
 
@@ -127,8 +143,12 @@ async def stop_analysis(task_id: str, db: AsyncSession = Depends(get_db)):
 
 @router.post("/analyze/{task_id}/switch_intent")
 async def switch_intent(task_id: str, req: SwitchIntentRequest):
+    if req.intent not in _ALLOWED_INTENTS:
+        raise HTTPException(status_code=422, detail=f"Unsupported intent: {req.intent}")
     if not task_manager.is_running(task_id):
         raise HTTPException(status_code=409, detail="Task not in decision window")
+    if not task_manager.set_intent_override(task_id, req.intent):
+        raise HTTPException(status_code=409, detail="Intent decision window is closed")
     return {"task_id": task_id, "intent": req.intent}
 
 
@@ -177,6 +197,7 @@ async def refresh_analysis(task_id: str, db: AsyncSession = Depends(get_db)):
         from app.routers.stream import push_event
         await push_event(new_task_id, event_type, data)
         _collected_events.append({"event_type": event_type, "data": data})
+        await persist_agent_event(new_task_id, len(_collected_events), event_type, data)
 
     task = asyncio.create_task(
         _run_analysis_wrapper(new_task_id, refresh_query, llm, emit_fn, original.tlp, None, db, _collected_events),
@@ -202,6 +223,12 @@ async def _run_analysis_wrapper(
     collected_events: list[dict] | None = None,
 ):
     try:
+        try:
+            from app.workers.health_check import check_all_sources
+            await asyncio.wait_for(check_all_sources(), timeout=20)
+        except Exception as e:
+            logger.warning("pre_analysis_health_check_failed", task_id=task_id, error=str(e))
+
         result = await run_analysis(
             task_id=task_id,
             query=query,
@@ -210,7 +237,7 @@ async def _run_analysis_wrapper(
             tlp=tlp,
             force_intent=force_intent,
             db=db,
-            agent_logs=collected_events,
+            agent_logs=None,
         )
 
         # Update final status (persistence module handles detailed data)
@@ -244,3 +271,45 @@ def _sanitize_query(query: str) -> str:
     # Strip zero-width characters
     query = re.sub(r"[​-‍﻿]", "", query)
     return query.strip()
+
+
+async def persist_agent_event(task_id: str, sequence: int, event_type: str, data: dict) -> None:
+    """Persist event stream immediately so interrupted tasks retain their timeline."""
+    import json
+    from app.db.engine import async_session_factory
+
+    async with async_session_factory() as event_db:
+        event_db.add(AgentLog(
+            analysis_id=task_id,
+            sequence=sequence,
+            event_type=event_type,
+            agent_name=_extract_agent_name(event_type, data),
+            payload=json.dumps(data, ensure_ascii=False) if data else None,
+            created_at=now_iso(),
+        ))
+        await event_db.commit()
+
+
+def _extract_agent_name(event_type: str, data: dict) -> str | None:
+    agent_id = data.get("agent_id") or data.get("agent_name")
+    if agent_id:
+        return str(agent_id)
+    return {
+        "intent_classified": "IntentClassifier",
+        "intent_switched": "IntentClassifier",
+        "plan_result": "PlannerAgent",
+        "data_source_query": "EnrichmentAgent",
+        "data_source_hit": "EnrichmentAgent",
+        "data_source_miss": "EnrichmentAgent",
+        "data_source_error": "EnrichmentAgent",
+        "enrichment_done": "EnrichmentAgent",
+        "ioc_extracted": "IOCExtractorAgent",
+        "critic_done": "CriticAgent",
+        "synthesizing": "SynthesisAgent",
+        "report_chunk": "SynthesisAgent",
+        "done": "Orchestrator",
+        "error": "Orchestrator",
+        "stopped": "Orchestrator",
+        "timeout": "Orchestrator",
+        "budget_exceeded": "Orchestrator",
+    }.get(event_type)

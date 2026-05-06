@@ -232,18 +232,65 @@
 
 .report-panel code {
   background: var(--bg-surface-soft);
-  padding: 2px 6px;
-  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-hairline);
+  padding: 1px 6px;
+  border-radius: var(--radius-xs);
   font-family: var(--font-mono);
-  font-size: var(--text-sm);
+  font-size: 0.88em;
+  line-height: 1.45;
+  color: var(--text-body-strong);
 }
 
 .report-panel pre {
-  background: var(--bg-surface-dark);
-  color: var(--text-on-dark);
-  padding: var(--space-3);
+  background: #111827;
+  color: #e5e7eb;
+  border: 1px solid #263244;
+  padding: var(--space-4);
   border-radius: var(--radius-md);
   overflow-x: auto;
+  max-width: 100%;
+  margin: var(--space-3) 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  line-height: 1.65;
+  tab-size: 2;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+}
+
+.report-panel pre code {
+  display: block;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  color: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  white-space: pre;
+}
+
+.report-panel pre::-webkit-scrollbar {
+  height: 10px;
+}
+
+.report-panel pre::-webkit-scrollbar-track {
+  background: #0b1020;
+  border-radius: var(--radius-pill);
+}
+
+.report-panel pre::-webkit-scrollbar-thumb {
+  background: #4b5563;
+  border-radius: var(--radius-pill);
+}
+
+[data-theme="dark"] .report-panel code {
+  background: var(--bg-surface-dark-soft);
+  color: var(--text-on-dark);
+  border-color: rgba(255,255,255,0.08);
+}
+
+[data-theme="dark"] .report-panel pre {
+  background: #0b1020;
+  border-color: #1f2937;
 }
 
 .report-panel blockquote {
@@ -390,6 +437,19 @@
   border: 1px solid var(--border-hairline);
   border-radius: var(--radius-md);
   margin-bottom: var(--space-2);
+}
+
+.source-update-summary {
+  margin-bottom: var(--space-4);
+  padding: var(--space-3);
+  border: 1px solid var(--border-hairline);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface-soft);
+}
+
+[data-theme="dark"] .source-update-summary {
+  background: var(--bg-surface-dark-elevated);
+  border-color: rgba(255,255,255,0.08);
 }
 
 .source-info {

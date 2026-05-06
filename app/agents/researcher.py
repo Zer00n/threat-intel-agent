@@ -59,11 +59,17 @@ _SYSTEM_PROMPT = """You are a threat intelligence researcher. Investigate the gi
 class ResearchAgent(BaseAgent):
     name = "ResearchAgent"
 
-    def __init__(self, agent_id: str = "", llm: LLMClient | None = None, emit: EmitFn | None = None):
+    def __init__(
+        self,
+        agent_id: str = "",
+        llm: LLMClient | None = None,
+        emit: EmitFn | None = None,
+        search_cache: SearchCache | None = None,
+    ):
         super().__init__(emit)
         self._agent_id = agent_id or str(uuid.uuid4())[:8]
         self._llm = llm
-        self._search_cache = SearchCache()
+        self._search_cache = search_cache or SearchCache()
 
     async def run(self, memory: Memory, question: str = "", **kwargs: Any) -> AgentResult:
         await self.emit("agent_start", {"agent_id": self._agent_id, "question": question})
