@@ -13,6 +13,7 @@ from app.agents.enrichment_agent import EnrichmentAgent
 from app.agents.researcher import ResearchAgent
 from app.agents.ioc_extractor import IOCExtractorAgent
 from app.agents.critic import CriticAgent
+from app.agents.sigma_generator import SigmaGeneratorAgent
 from app.agents.synthesis import SynthesisAgent
 from app.agents.llm_client import BudgetExceededError, LLMClient
 from app.agents.memory import Memory
@@ -236,6 +237,13 @@ async def _run_pipeline(
         await asyncio.wait_for(critic.run(memory), timeout=_CRITIC_TIMEOUT)
     except asyncio.TimeoutError:
         logger.warning("critic_timeout", task_id=task_id)
+
+    # 6.5 Sigma Rule Generation
+    sigma_gen = SigmaGeneratorAgent(llm=llm, emit=emit)
+    try:
+        await asyncio.wait_for(sigma_gen.run(memory), timeout=60)
+    except asyncio.TimeoutError:
+        logger.warning("sigma_generator_timeout", task_id=task_id)
 
     # 7. Synthesis (streaming)
     synthesizer = SynthesisAgent(llm=llm, emit=emit)

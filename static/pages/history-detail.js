@@ -25,6 +25,7 @@ function renderDetail(container, data) {
         </div>
       </div>
       <div style="display:flex;gap:var(--space-2)">
+        <button class="btn btn-sm" onclick="window._refreshDetail()">刷新增量</button>
         <button class="btn btn-sm" onclick="window._exportDetail('md')">MD</button>
         <button class="btn btn-sm" onclick="window._exportDetail('pdf')">PDF</button>
         <button class="btn btn-sm" onclick="window._exportDetail('stix')">STIX</button>
@@ -81,6 +82,16 @@ function renderDetail(container, data) {
       await API.deleteHistory(data.id);
       showToast('已删除');
       window.location.hash = '#/history';
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  };
+  window._refreshDetail = async () => {
+    showToast('正在创建增量刷新...');
+    try {
+      const result = await API.post(`/analyze/${data.id}/refresh`);
+      showToast('增量分析已启动');
+      window.location.hash = `#/history/${result.task_id}`;
     } catch (err) {
       showToast(err.message, 'error');
     }

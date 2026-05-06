@@ -137,4 +137,7 @@ class Memory:
                 for issue in self.critic_result.issues:
                     parts.append(f"- {issue.get('type', 'unknown')}: {issue.get('description', '')}")
 
+        if self.sigma_rules:
+            parts.append(f"\n## Sigma Detection Rules\n{self.sigma_rules}")
+
         return "\n".join(parts)
