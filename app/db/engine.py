@@ -32,38 +32,31 @@ async def init_db() -> None:
 
 
 async def ensure_fts_schema(conn) -> None:
-    """Create FTS5 search table and sync triggers used by the history API."""
+    """Create FTS5 search table for full-text search on analyses.
+
+    Uses content='analyses' (not contentless) so that DELETE from the
+    source table is supported — contentless FTS5 tables reject DELETE
+    which was causing OperationalError on history deletion.
+    """
+    # Drop the old contentless FTS table + triggers if they exist
+    await conn.execute(text("DROP TABLE IF EXISTS analyses_fts"))
+    await conn.execute(text("DROP TRIGGER IF EXISTS analyses_fts_ai"))
+    await conn.execute(text("DROP TRIGGER IF EXISTS analyses_fts_au"))
+    await conn.execute(text("DROP TRIGGER IF EXISTS analyses_fts_ad"))
+
+    # Recreate with content table — FTS5 manages sync automatically
     await conn.execute(text("""
         CREATE VIRTUAL TABLE IF NOT EXISTS analyses_fts USING fts5(
             id UNINDEXED,
             query,
             report_md,
-            content=''
+            content='analyses',
+            content_rowid='rowid'
         )
     """))
+    # Rebuild to populate from existing data
     await conn.execute(text("""
-        CREATE TRIGGER IF NOT EXISTS analyses_fts_ai AFTER INSERT ON analyses BEGIN
-            INSERT INTO analyses_fts(rowid, id, query, report_md)
-            VALUES (new.rowid, new.id, new.query, COALESCE(new.report_md, ''));
-        END
-    """))
-    await conn.execute(text("""
-        CREATE TRIGGER IF NOT EXISTS analyses_fts_au AFTER UPDATE OF query, report_md ON analyses BEGIN
-            DELETE FROM analyses_fts WHERE rowid = old.rowid;
-            INSERT INTO analyses_fts(rowid, id, query, report_md)
-            VALUES (new.rowid, new.id, new.query, COALESCE(new.report_md, ''));
-        END
-    """))
-    await conn.execute(text("""
-        CREATE TRIGGER IF NOT EXISTS analyses_fts_ad AFTER DELETE ON analyses BEGIN
-            DELETE FROM analyses_fts WHERE rowid = old.rowid;
-        END
-    """))
-    await conn.execute(text("""
-        INSERT INTO analyses_fts(rowid, id, query, report_md)
-        SELECT rowid, id, query, COALESCE(report_md, '')
-        FROM analyses
-        WHERE rowid NOT IN (SELECT rowid FROM analyses_fts)
+        INSERT INTO analyses_fts(analyses_fts) VALUES('rebuild')
     """))
 
 
