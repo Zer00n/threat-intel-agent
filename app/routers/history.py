@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
@@ -10,6 +11,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.deps import get_db
 from app.db.models import AgentLog, Analysis, AttackTechnique, CVERef, Finding, IOC, SourceUsed
 from app.schemas.history import HistoryItem, HistoryListResponse
+from app.utils.attck_loader import get_technique, validate_technique_id
+from app.utils.defang import defang
+from app.utils.ioc_regex import extract_all_iocs
 from app.utils.time import now_iso
 
 router = APIRouter(prefix="/history", tags=["history"])
@@ -114,6 +118,9 @@ async def get_history_detail(analysis_id: str, db: AsyncSession = Depends(get_db
         select(SourceUsed).where(SourceUsed.analysis_id == analysis_id)
     )).scalars().all()
 
+    display_iocs = _display_iocs(iocs, analysis.report_md or "")
+    display_techniques = _display_techniques(techniques, analysis.report_md or "")
+
     return {
         "id": analysis.id,
         "query": analysis.query,
@@ -143,7 +150,7 @@ async def get_history_detail(analysis_id: str, db: AsyncSession = Depends(get_db
         "iocs": [
             {"id": i.id, "ioc_type": i.ioc_type, "value": i.value, "value_defanged": i.value_defanged,
              "context": i.context, "confidence": i.confidence, "is_extracted_by": i.is_extracted_by}
-            for i in iocs
+            for i in display_iocs
         ],
         "cve_refs": [
             {"cve_id": c.cve_id, "cvss_v3_score": c.cvss_v3_score, "is_in_kev": c.is_in_kev,
@@ -153,13 +160,67 @@ async def get_history_detail(analysis_id: str, db: AsyncSession = Depends(get_db
         "attack_techniques": [
             {"technique_id": t.technique_id, "technique_name": t.technique_name,
              "tactic": t.tactic, "confidence": t.confidence}
-            for t in techniques
+            for t in display_techniques
         ],
         "sources_used": [
             {"url": s.url, "domain": s.domain, "source_type": s.source_type, "is_trusted": s.is_trusted}
             for s in sources
         ],
     }
+
+
+class _DisplayIOC:
+    def __init__(self, ioc_type: str, value: str, context: str):
+        self.id = ""
+        self.ioc_type = ioc_type
+        self.value = value
+        self.value_defanged = defang(value, ioc_type)
+        self.context = context
+        self.confidence = "Medium"
+        self.is_extracted_by = "regex"
+
+
+class _DisplayTechnique:
+    def __init__(self, technique_id: str, technique_name: str, tactic: str):
+        self.technique_id = technique_id
+        self.technique_name = technique_name
+        self.tactic = tactic
+        self.confidence = "Medium"
+
+
+def _display_iocs(rows: list[IOC], report_md: str):
+    if rows or not report_md:
+        return rows
+    return [
+        _DisplayIOC(item["type"], item["value"], _find_context(report_md, item["value"]))
+        for item in extract_all_iocs(report_md)
+    ]
+
+
+def _display_techniques(rows: list[AttackTechnique], report_md: str):
+    if rows or not report_md:
+        return rows
+    result = []
+    for technique_id in sorted(set(re.findall(r"\bT\d{4}(?:\.\d{3})?\b", report_md))):
+        if not validate_technique_id(technique_id):
+            continue
+        technique = get_technique(technique_id) or {}
+        tactics = technique.get("kill_chain_phases", [])
+        tactic = ""
+        if tactics:
+            first = tactics[0]
+            tactic = first.get("phase_name", "") if isinstance(first, dict) else str(first)
+        result.append(_DisplayTechnique(technique_id, technique.get("name", technique_id), tactic))
+    return result
+
+
+def _find_context(text: str, value: str) -> str:
+    idx = text.lower().find(value.lower())
+    if idx == -1:
+        return ""
+    start = max(0, idx - 80)
+    end = min(len(text), idx + len(value) + 80)
+    return text[start:end].strip()
 
 
 @router.get("/{analysis_id}/diff/{compare_id}")

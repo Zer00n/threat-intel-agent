@@ -24,7 +24,7 @@ async def run_periodic() -> None:
         await asyncio.sleep(_INTERVAL)
 
 
-async def sync_kev() -> bool:
+async def sync_kev() -> dict:
     cache_path = settings.data_dir_path / "kev_cache.json"
     cache_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -35,5 +35,11 @@ async def sync_kev() -> bool:
         cache_path.write_text(json.dumps(data), encoding="utf-8")
 
     count = len(data.get("vulnerabilities", []))
-    logger.info("kev_synced", count=count)
-    return True
+    summary = {
+        "success": True,
+        "vulnerabilities_count": count,
+        "size_bytes": cache_path.stat().st_size,
+        "path": str(cache_path),
+    }
+    logger.info("kev_synced", **summary)
+    return summary

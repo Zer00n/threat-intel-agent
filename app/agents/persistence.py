@@ -2,12 +2,13 @@
 from __future__ import annotations
 
 import json
+import re
 from typing import Any
 
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.agents.memory import AttckMapping, Memory
+from app.agents.memory import AttckMapping, IOC as MemoryIOC, Memory
 from app.db.models import (
     AgentLog,
     Analysis,
@@ -18,6 +19,9 @@ from app.db.models import (
     SourceUsed,
 )
 from app.utils.time import now_iso
+from app.utils.attck_loader import get_technique, validate_technique_id
+from app.utils.defang import defang
+from app.utils.ioc_regex import extract_all_iocs
 
 logger = structlog.get_logger()
 
@@ -35,8 +39,10 @@ async def persist_analysis_results(
     """Write all pipeline outputs to database tables."""
     now = now_iso()
 
-    # 0. Pre-process: extract ATT&CK techniques from enrichment if not already populated
+    # 0. Pre-process: extract structured objects from all available text/data.
+    _extract_iocs_from_text(memory)
     _extract_attck_from_enrichment(memory)
+    _extract_attck_from_text(memory)
 
     # 1. Update analyses table
     from sqlalchemy import update
@@ -228,3 +234,76 @@ def _extract_attck_from_enrichment(memory: Memory) -> None:
                 confidence="Low",
                 rationale="Referenced in enrichment context",
             ))
+
+
+def _extract_iocs_from_text(memory: Memory) -> None:
+    """Backfill IOCs from final report/findings so history tabs reflect report content."""
+    text = _analysis_text(memory)
+    if not text:
+        return
+
+    existing = {(ioc.ioc_type, ioc.value.lower()) for ioc in memory.iocs}
+    for item in extract_all_iocs(text):
+        ioc_type = item["type"]
+        value = item["value"]
+        key = (ioc_type, value.lower())
+        if key in existing:
+            continue
+        memory.iocs.append(MemoryIOC(
+            id=__import__("uuid").uuid4().hex,
+            ioc_type=ioc_type,
+            value=value,
+            value_defanged=defang(value, ioc_type),
+            context=_find_context(text, value),
+            confidence="Medium",
+            is_extracted_by="regex",
+        ))
+        existing.add(key)
+
+
+def _extract_attck_from_text(memory: Memory) -> None:
+    """Backfill ATT&CK mappings from report/findings when synthesis mentions techniques."""
+    text = _analysis_text(memory)
+    if not text:
+        return
+
+    existing = {tech.technique_id for tech in memory.attck_techniques}
+    for technique_id in sorted(set(re.findall(r"\bT\d{4}(?:\.\d{3})?\b", text))):
+        if technique_id in existing:
+            continue
+        if not validate_technique_id(technique_id):
+            continue
+        technique = get_technique(technique_id) or {}
+        tactics = technique.get("kill_chain_phases", [])
+        tactic = ""
+        if tactics:
+            first = tactics[0]
+            tactic = first.get("phase_name", "") if isinstance(first, dict) else str(first)
+        memory.attck_techniques.append(AttckMapping(
+            technique_id=technique_id,
+            technique_name=technique.get("name", technique_id),
+            tactic=tactic,
+            confidence="Medium",
+            rationale="Extracted from final report or findings text",
+        ))
+        existing.add(technique_id)
+
+
+def _analysis_text(memory: Memory) -> str:
+    parts = []
+    if memory.report_md:
+        parts.append(memory.report_md)
+    for finding in memory.findings:
+        parts.append(finding.claim)
+        if finding.detail:
+            parts.append(finding.detail)
+    return "\n".join(parts)
+
+
+def _find_context(text: str, value: str) -> str:
+    idx = text.lower().find(value.lower())
+    if idx == -1:
+        return ""
+    start = max(0, idx - 80)
+    end = min(len(text), idx + len(value) + 80)
+    return text[start:end].strip()
