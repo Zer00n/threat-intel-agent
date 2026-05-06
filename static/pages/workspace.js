@@ -38,9 +38,9 @@ export function renderWorkspace(container) {
         <div class="analysis-layout">
           <div class="timeline-panel" id="timeline"></div>
           <div class="report-panel" id="report">
-            <details id="thinking-block" style="margin-bottom:var(--space-3);border:1px solid var(--border-hairline);border-radius:var(--radius-md);padding:var(--space-2)">
-              <summary style="cursor:pointer;font-weight:600;font-size:var(--text-sm);color:var(--text-secondary)">思考过程</summary>
-              <div id="thinking-content" style="font-size:var(--text-xs);color:var(--text-muted);max-height:200px;overflow-y:auto;margin-top:var(--space-2);font-family:var(--font-mono)"></div>
+            <details id="thinking-block" class="thinking-block">
+              <summary>思考过程</summary>
+              <div id="thinking-content" class="thinking-content"></div>
             </details>
             <div id="report-content"></div>
             <span id="cursor" class="cursor-blink" style="display:none"></span>
