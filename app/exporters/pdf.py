@@ -61,12 +61,8 @@ details summary {{ cursor: pointer; font-weight: bold; }}
 </body>
 </html>"""
 
-    try:
-        from weasyprint import HTML
-        pdf_bytes = HTML(string=html).write_pdf()
-    except Exception:
-        # Fallback: return HTML as PDF placeholder
-        pdf_bytes = html.encode("utf-8")
+    from weasyprint import HTML
+    pdf_bytes = HTML(string=html).write_pdf()
 
     now = now_iso().replace(":", "").replace("-", "").replace("T", "-")[:13]
     filename = f"ti-{analysis.intent or 'unknown'}-{slugify(analysis.query)}-{now}.pdf"

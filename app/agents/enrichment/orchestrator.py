@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import hashlib
 from typing import Any, Callable
 
 import httpx
@@ -13,6 +14,8 @@ from app.agents.enrichment.kev import KevSource
 from app.agents.enrichment.epss import EpssSource
 from app.agents.enrichment.attck import AttckSource
 from app.agents.enrichment.ghsa import GhsaSource
+from app.db.engine import async_session_factory
+from app.db.repositories.cache import get_cached, set_cached
 
 logger = structlog.get_logger()
 
@@ -55,7 +58,7 @@ async def run_enrichment(
         for src_name, src in source_instances.items():
             if emit:
                 await emit("data_source_query", {"source": src_name, "entity": entity})
-            tasks[src_name] = src.fetch(entity)
+            tasks[src_name] = _fetch_with_cache(src_name, src, entity)
 
         done_results = await asyncio.gather(*tasks.values(), return_exceptions=True)
 
@@ -81,6 +84,31 @@ async def run_enrichment(
             await client.aclose()
 
     return results
+
+
+async def _fetch_with_cache(src_name: str, src: EnrichmentSource, entity: str) -> SourceResult:
+    cache_key = _cache_key(src_name, entity)
+    async with async_session_factory() as db:
+        cached = await get_cached(db, cache_key)
+        if cached is not None:
+            return SourceResult(
+                source=src_name,
+                success=True,
+                data=cached,
+                from_cache=True,
+            )
+
+    result = await src.fetch(entity)
+    if result.success:
+        async with async_session_factory() as db:
+            await set_cached(db, cache_key, src_name, result.data, src.cache_ttl)
+    return result
+
+
+def _cache_key(src_name: str, entity: str) -> str:
+    raw = f"{src_name}:{entity.strip().lower()}"
+    digest = hashlib.sha256(raw.encode("utf-8")).hexdigest()
+    return f"{src_name}:{digest[:48]}"
 
 
 def _get_primary_entity(intent: str, entities: dict[str, Any]) -> str | None:

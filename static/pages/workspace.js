@@ -25,6 +25,14 @@ export function renderWorkspace(container) {
           <span id="token-counter" style="margin-left:auto"></span>
           <button class="btn btn-sm" onclick="window.toggleTheme()">切换主题</button>
         </div>
+        <div id="intent-switcher" style="display:none;margin-top:var(--space-2);gap:var(--space-2);align-items:center;flex-wrap:wrap">
+          <span style="font-size:var(--text-sm);color:var(--text-muted)">切换调研路径：</span>
+          <button class="btn btn-sm" onclick="window._switchIntent('cve')">CVE</button>
+          <button class="btn btn-sm" onclick="window._switchIntent('attack_technique')">ATT&CK</button>
+          <button class="btn btn-sm" onclick="window._switchIntent('threat_actor')">APT/组织</button>
+          <button class="btn btn-sm" onclick="window._switchIntent('malware')">恶意软件</button>
+          <button class="btn btn-sm" onclick="window._switchIntent('generic')">通用</button>
+        </div>
       </div>
       <div id="analysis-area" style="display:none">
         <div class="analysis-layout">
@@ -108,6 +116,12 @@ function startSSE(taskId) {
     intent_classified: (data) => {
       addTimeline('意图识别完成', `${data.intent}（置信度：${data.confidence}）`, 'info');
       document.getElementById('intent-preview').textContent = `意图：${data.intent}`;
+      showIntentSwitcher();
+    },
+    intent_switched: (data) => {
+      addTimeline('调研路径已切换', data.intent, 'plan');
+      document.getElementById('intent-preview').textContent = `意图：${data.intent}`;
+      hideIntentSwitcher();
     },
     plan_result: (data) => {
       addTimeline('分析计划已创建', `${data.research_questions?.length || 0} 个问题，数据源：${data.authoritative_sources?.join(', ')}`, 'plan');
@@ -241,4 +255,31 @@ window._export = (format) => {
     zip: `/export/zip/${currentTaskId}`,
   };
   API.download(endpoints[format]);
+};
+
+let intentSwitchTimer = null;
+
+function showIntentSwitcher() {
+  const el = document.getElementById('intent-switcher');
+  if (!el) return;
+  el.style.display = 'flex';
+  clearTimeout(intentSwitchTimer);
+  intentSwitchTimer = setTimeout(hideIntentSwitcher, 5000);
+}
+
+function hideIntentSwitcher() {
+  const el = document.getElementById('intent-switcher');
+  if (el) el.style.display = 'none';
+  clearTimeout(intentSwitchTimer);
+  intentSwitchTimer = null;
+}
+
+window._switchIntent = async (intent) => {
+  if (!currentTaskId) return;
+  try {
+    await API.switchIntent(currentTaskId, intent);
+    hideIntentSwitcher();
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
 };

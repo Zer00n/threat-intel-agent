@@ -162,6 +162,71 @@ async def get_history_detail(analysis_id: str, db: AsyncSession = Depends(get_db
     }
 
 
+@router.get("/{analysis_id}/diff/{compare_id}")
+async def diff_history(analysis_id: str, compare_id: str, db: AsyncSession = Depends(get_db)):
+    """Compare two analysis records for incremental refresh review."""
+    left = (await db.execute(select(Analysis).where(Analysis.id == analysis_id))).scalar_one_or_none()
+    right = (await db.execute(select(Analysis).where(Analysis.id == compare_id))).scalar_one_or_none()
+    if not left or not right:
+        raise HTTPException(status_code=404, detail="Analysis not found")
+
+    left_cves = (await db.execute(select(CVERef).where(CVERef.analysis_id == analysis_id))).scalars().all()
+    right_cves = (await db.execute(select(CVERef).where(CVERef.analysis_id == compare_id))).scalars().all()
+    left_iocs = (await db.execute(select(IOC).where(IOC.analysis_id == analysis_id))).scalars().all()
+    right_iocs = (await db.execute(select(IOC).where(IOC.analysis_id == compare_id))).scalars().all()
+    left_tech = (await db.execute(select(AttackTechnique).where(AttackTechnique.analysis_id == analysis_id))).scalars().all()
+    right_tech = (await db.execute(select(AttackTechnique).where(AttackTechnique.analysis_id == compare_id))).scalars().all()
+
+    return {
+        "base_id": analysis_id,
+        "compare_id": compare_id,
+        "status_changed": left.status != right.status,
+        "cost_delta_usd": round((right.cost_usd or 0) - (left.cost_usd or 0), 6),
+        "cve_changes": _diff_cves(left_cves, right_cves),
+        "ioc_changes": _diff_sets(
+            {(i.ioc_type, i.value) for i in left_iocs},
+            {(i.ioc_type, i.value) for i in right_iocs},
+        ),
+        "attack_technique_changes": _diff_sets(
+            {t.technique_id for t in left_tech},
+            {t.technique_id for t in right_tech},
+        ),
+        "report_changed": (left.report_md or "") != (right.report_md or ""),
+    }
+
+
+def _diff_sets(left: set, right: set) -> dict:
+    return {
+        "added": sorted(list(right - left)),
+        "removed": sorted(list(left - right)),
+        "unchanged_count": len(left & right),
+    }
+
+
+def _diff_cves(left: list[CVERef], right: list[CVERef]) -> list[dict]:
+    left_map = {c.cve_id: c for c in left}
+    right_map = {c.cve_id: c for c in right}
+    changes = []
+    for cve_id in sorted(set(left_map) | set(right_map)):
+        before = left_map.get(cve_id)
+        after = right_map.get(cve_id)
+        if before is None:
+            changes.append({"cve_id": cve_id, "change": "added"})
+            continue
+        if after is None:
+            changes.append({"cve_id": cve_id, "change": "removed"})
+            continue
+        fields = {}
+        for field in ("cvss_v3_score", "is_in_kev", "kev_added_date", "epss_score", "epss_percentile"):
+            old_value = getattr(before, field)
+            new_value = getattr(after, field)
+            if old_value != new_value:
+                fields[field] = {"before": old_value, "after": new_value}
+        if fields:
+            changes.append({"cve_id": cve_id, "change": "modified", "fields": fields})
+    return changes
+
+
 class BatchDeleteRequest(BaseModel):
     ids: list[str]
 
