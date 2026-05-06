@@ -59,7 +59,47 @@ export async function renderSettings(container) {
     </div>
 
     <button class="btn btn-primary" onclick="window._saveSettings()">保存设置</button>
+
+    <div class="settings-group card" style="margin-top:var(--space-6)">
+      <h3>可信源白名单</h3>
+      <p style="font-size:var(--text-xs);color:var(--text-muted);margin-bottom:var(--space-3)">可信域名的来源在报告中自动标记为高置信度</p>
+      <div style="display:flex;gap:var(--space-2);margin-bottom:var(--space-3)">
+        <input id="trusted-domain-input" class="input" placeholder="输入域名，如 nist.gov" style="flex:1">
+        <input id="trusted-note-input" class="input" placeholder="备注（可选）" style="flex:1">
+        <button class="btn btn-sm btn-primary" onclick="window._addTrusted()">添加</button>
+      </div>
+      <div id="trusted-list"></div>
+    </div>
   `;
+
+  // Load trusted sources
+  _loadTrustedSources();
+
+  window._addTrusted = async () => {
+    const domain = document.getElementById('trusted-domain-input').value.trim();
+    const note = document.getElementById('trusted-note-input').value.trim();
+    if (!domain) { showToast('请输入域名', 'error'); return; }
+    try {
+      await API.addTrustedSource(domain, note);
+      showToast('已添加');
+      document.getElementById('trusted-domain-input').value = '';
+      document.getElementById('trusted-note-input').value = '';
+      _loadTrustedSources();
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  };
+
+  window._deleteTrusted = async (domain) => {
+    if (!confirm(`确定删除 ${domain}？`)) return;
+    try {
+      await API.deleteTrustedSource(domain);
+      showToast('已删除');
+      _loadTrustedSources();
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  };
 
   window._saveSettings = async () => {
     const data = {};
@@ -82,4 +122,27 @@ export async function renderSettings(container) {
       showToast(err.message, 'error');
     }
   };
+}
+
+async function _loadTrustedSources() {
+  const el = document.getElementById('trusted-list');
+  if (!el) return;
+  try {
+    const sources = await API.trustedSources();
+    if (!sources.length) {
+      el.innerHTML = '<p style="font-size:var(--text-xs);color:var(--text-muted)">暂无可信源</p>';
+      return;
+    }
+    el.innerHTML = sources.map(s => `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:var(--space-2) 0;border-bottom:1px solid var(--border-hairline-soft)">
+        <div>
+          <code style="font-size:var(--text-sm)">${s.domain}</code>
+          ${s.note ? `<span style="font-size:var(--text-xs);color:var(--text-muted);margin-left:var(--space-2)">${s.note}</span>` : ''}
+        </div>
+        <button class="btn btn-sm btn-danger" onclick="window._deleteTrusted('${s.domain}')">删除</button>
+      </div>
+    `).join('');
+  } catch {
+    el.innerHTML = '<p style="font-size:var(--text-xs);color:var(--text-muted)">加载失败</p>';
+  }
 }

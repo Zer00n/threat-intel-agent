@@ -38,6 +38,10 @@ export function renderWorkspace(container) {
         <div class="analysis-layout">
           <div class="timeline-panel" id="timeline"></div>
           <div class="report-panel" id="report">
+            <details id="thinking-block" style="margin-bottom:var(--space-3);border:1px solid var(--border-hairline);border-radius:var(--radius-md);padding:var(--space-2)">
+              <summary style="cursor:pointer;font-weight:600;font-size:var(--text-sm);color:var(--text-secondary)">思考过程</summary>
+              <div id="thinking-content" style="font-size:var(--text-xs);color:var(--text-muted);max-height:200px;overflow-y:auto;margin-top:var(--space-2);font-family:var(--font-mono)"></div>
+            </details>
             <div id="report-content"></div>
             <span id="cursor" class="cursor-blink" style="display:none"></span>
           </div>
@@ -51,6 +55,10 @@ export function renderWorkspace(container) {
           <button class="btn btn-sm" onclick="window._export('zip')">全部打包</button>
         </div>
       </div>
+      <div id="token-sidebar" style="position:fixed;top:var(--space-4);right:var(--space-4);background:var(--bg-surface-card);border:1px solid var(--border-hairline);border-radius:var(--radius-lg);padding:var(--space-3);font-size:var(--text-xs);min-width:180px;z-index:100;display:none">
+        <div style="font-weight:600;margin-bottom:var(--space-2);color:var(--text-ink)">本月消耗</div>
+        <div id="token-sidebar-content"></div>
+      </div>
     </div>
   `;
 
@@ -61,6 +69,41 @@ export function renderWorkspace(container) {
     }
   });
   input.focus();
+
+  // Load token balance sidebar
+  _loadTokenSidebar();
+}
+
+async function _loadTokenSidebar() {
+  try {
+    const stats = await API.stats();
+    const currentMonth = new Date().toISOString().slice(0, 7);
+    const monthly = (stats.monthly_usage || []).find(m => m.year_month === currentMonth);
+    const budget = 50; // default, could fetch from settings
+    const spent = monthly ? monthly.total_cost_usd : 0;
+    const remaining = Math.max(0, budget - spent);
+    const pct = budget > 0 ? Math.round((spent / budget) * 100) : 0;
+    const el = document.getElementById('token-sidebar-content');
+    if (!el) return;
+    el.innerHTML = `
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+        <span>已花费</span><span style="font-weight:600">$${spent.toFixed(2)}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+        <span>剩余</span><span style="font-weight:600;color:${remaining < 5 ? 'var(--error)' : 'var(--success)'}">$${remaining.toFixed(2)}</span>
+      </div>
+      <div style="background:var(--bg-surface-soft);border-radius:var(--radius-sm);height:6px;margin:6px 0;overflow:hidden">
+        <div style="background:${pct > 80 ? 'var(--error)' : 'var(--accent-primary)'};height:100%;width:${Math.min(pct, 100)}%;border-radius:var(--radius-sm)"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;color:var(--text-muted)">
+        <span>分析次数：${monthly ? monthly.analysis_count : 0}</span>
+        <span>${pct}%</span>
+      </div>
+    `;
+    document.getElementById('token-sidebar').style.display = 'block';
+  } catch {
+    // Stats not available, hide sidebar
+  }
 }
 
 window._startAnalysis = async () => {
@@ -143,6 +186,16 @@ function startSSE(taskId) {
     },
     agent_start: (data) => {
       addTimeline(`研究代理 ${data.agent_id}`, data.question, 'research');
+    },
+    thinking: (data) => {
+      const el = document.getElementById('thinking-content');
+      if (el) {
+        const entry = document.createElement('div');
+        entry.style.cssText = 'padding:4px 0;border-bottom:1px solid var(--border-hairline-soft)';
+        entry.innerHTML = `<span style="color:var(--accent-primary);font-weight:600">[${data.agent_id || ''}]</span> ${escapeHtml(data.content || '')}`;
+        el.appendChild(entry);
+        el.scrollTop = el.scrollHeight;
+      }
     },
     searching: (data) => {
       addTimeline(`  ${data.agent_id} 搜索中`, `"${data.query}"（第 ${data.round} 轮）`, 'search');
@@ -283,3 +336,10 @@ window._switchIntent = async (intent) => {
     showToast(err.message, 'error');
   }
 };
+
+function escapeHtml(str) {
+  if (!str) return '';
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}

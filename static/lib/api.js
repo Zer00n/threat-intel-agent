@@ -58,6 +58,14 @@ const API = {
 
   updateSettings: (data) => API.put('/settings', data),
 
+  stats: () => API.get('/stats'),
+
+  trustedSources: () => API.get('/settings/trusted_sources'),
+
+  addTrustedSource: (domain, note) => API.post('/settings/trusted_sources', { domain, note }),
+
+  deleteTrustedSource: (domain) => API.del(`/settings/trusted_sources/${domain}`),
+
   download: (path) => {
     const a = document.createElement('a');
     a.href = path;
