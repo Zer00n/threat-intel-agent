@@ -327,3 +327,95 @@ async def batch_delete(req: _BatchDeleteReq, db: AsyncSession = Depends(get_db))
             deleted.append(aid)
     await db.commit()
     return {"deleted": deleted}
+
+
+@router.get("/{analysis_id}/diff/{compare_id}")
+async def diff_analyses(analysis_id: str, compare_id: str, db: AsyncSession = Depends(get_db)):
+    """Compare two analyses and return field-level differences."""
+    result_a = await db.execute(select(Analysis).where(Analysis.id == analysis_id))
+    a = result_a.scalar_one_or_none()
+    result_b = await db.execute(select(Analysis).where(Analysis.id == compare_id))
+    b = result_b.scalar_one_or_none()
+
+    if not a or not b:
+        raise HTTPException(status_code=404, detail="Analysis not found")
+
+    # Compare key fields
+    diffs = []
+
+    # Status
+    if a.status != b.status:
+        diffs.append({"field": "状态", "old": a.status, "new": b.status})
+
+    # Confidence
+    if a.overall_confidence != b.overall_confidence:
+        diffs.append({"field": "置信度", "old": a.overall_confidence, "new": b.overall_confidence})
+
+    # CVE refs - compare KEV and EPSS
+    cves_a = (await db.execute(
+        select(CVERef).where(CVERef.analysis_id == analysis_id)
+    )).scalars().all()
+    cves_b = (await db.execute(
+        select(CVERef).where(CVERef.analysis_id == compare_id)
+    )).scalars().all()
+
+    cve_map_a = {c.cve_id: c for c in cves_a}
+    cve_map_b = {c.cve_id: c for c in cves_b}
+
+    for cve_id in set(cve_map_a.keys()) | set(cve_map_b.keys()):
+        ca = cve_map_a.get(cve_id)
+        cb = cve_map_b.get(cve_id)
+        if ca and cb:
+            if ca.is_in_kev != cb.is_in_kev:
+                diffs.append({"field": f"{cve_id} KEV 状态", "old": "已收录" if ca.is_in_kev else "未收录", "new": "已收录" if cb.is_in_kev else "未收录"})
+            if ca.cvss_v3_score != cb.cvss_v3_score:
+                diffs.append({"field": f"{cve_id} CVSS", "old": str(ca.cvss_v3_score), "new": str(cb.cvss_v3_score)})
+            if ca.epss_score != cb.epss_score:
+                diffs.append({"field": f"{cve_id} EPSS", "old": str(ca.epss_score), "new": str(cb.epss_score)})
+        elif ca and not cb:
+            diffs.append({"field": f"{cve_id}", "old": "存在", "new": "不存在"})
+        elif cb and not ca:
+            diffs.append({"field": f"{cve_id}", "old": "不存在", "new": "存在"})
+
+    # IOC count
+    iocs_a = (await db.execute(
+        select(func.count()).select_from(IOC).where(IOC.analysis_id == analysis_id)
+    )).scalar() or 0
+    iocs_b = (await db.execute(
+        select(func.count()).select_from(IOC).where(IOC.analysis_id == compare_id)
+    )).scalar() or 0
+    if iocs_a != iocs_b:
+        diffs.append({"field": "IOC 数量", "old": str(iocs_a), "new": str(iocs_b)})
+
+    # ATT&CK count
+    tech_a = (await db.execute(
+        select(func.count()).select_from(AttackTechnique).where(AttackTechnique.analysis_id == analysis_id)
+    )).scalar() or 0
+    tech_b = (await db.execute(
+        select(func.count()).select_from(AttackTechnique).where(AttackTechnique.analysis_id == compare_id)
+    )).scalar() or 0
+    if tech_a != tech_b:
+        diffs.append({"field": "ATT&CK 技术数", "old": str(tech_a), "new": str(tech_b)})
+
+    # Token usage
+    if a.token_input != b.token_input or a.token_output != b.token_output:
+        diffs.append({
+            "field": "令牌消耗",
+            "old": f"{a.token_input}入/{a.token_output}出",
+            "new": f"{b.token_input}入/{b.token_output}出",
+        })
+
+    # Cost
+    if a.cost_usd != b.cost_usd:
+        diffs.append({"field": "费用", "old": f"${a.cost_usd:.4f}", "new": f"${b.cost_usd:.4f}"})
+
+    # Duration
+    if a.duration_s != b.duration_s:
+        diffs.append({"field": "耗时", "old": f"{a.duration_s}秒", "new": f"{b.duration_s}秒"})
+
+    return {
+        "analysis_a": {"id": a.id, "query": a.query, "created_at": a.created_at},
+        "analysis_b": {"id": b.id, "query": b.query, "created_at": b.created_at},
+        "diffs": diffs,
+        "diff_count": len(diffs),
+    }

@@ -70,10 +70,19 @@ export async function renderSettings(container) {
       </div>
       <div id="trusted-list"></div>
     </div>
+
+    <div class="settings-group card" style="margin-top:var(--space-6)">
+      <h3>审计日志</h3>
+      <p style="font-size:var(--text-xs);color:var(--text-muted);margin-bottom:var(--space-3)">记录分析启动、导出、删除、设置变更等操作（保留 90 天）</p>
+      <div id="audit-log-list"></div>
+    </div>
   `;
 
   // Load trusted sources
   _loadTrustedSources();
+
+  // Load audit logs
+  _loadAuditLogs();
 
   window._addTrusted = async () => {
     const domain = document.getElementById('trusted-domain-input').value.trim();
@@ -142,6 +151,41 @@ async function _loadTrustedSources() {
         <button class="btn btn-sm btn-danger" onclick="window._deleteTrusted('${s.domain}')">删除</button>
       </div>
     `).join('');
+  } catch {
+    el.innerHTML = '<p style="font-size:var(--text-xs);color:var(--text-muted)">加载失败</p>';
+  }
+}
+
+async function _loadAuditLogs() {
+  const el = document.getElementById('audit-log-list');
+  if (!el) return;
+  try {
+    const data = await API.get('/audit_logs?limit=30');
+    const items = data.items || [];
+    if (!items.length) {
+      el.innerHTML = '<p style="font-size:var(--text-xs);color:var(--text-muted)">暂无审计记录</p>';
+      return;
+    }
+    el.innerHTML = items.map(item => {
+      const eventMap = {
+        'analysis_started': '分析启动',
+        'analysis_deleted': '分析删除',
+        'exported': '报告导出',
+        'setting_changed': '设置变更',
+        'analysis_refreshed': '增量刷新',
+      };
+      const label = eventMap[item.event_type] || item.event_type;
+      const detail = item.detail ? Object.entries(item.detail).map(([k, v]) => `${k}: ${v}`).join(', ') : '';
+      return `
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:var(--space-2) 0;border-bottom:1px solid var(--border-hairline-soft);font-size:var(--text-xs)">
+          <div>
+            <span class="badge badge-info" style="margin-right:var(--space-2)">${label}</span>
+            <span style="color:var(--text-muted)">${detail}</span>
+          </div>
+          <span style="color:var(--text-muted)">${item.created_at?.slice(0, 19).replace('T', ' ') || ''}</span>
+        </div>
+      `;
+    }).join('');
   } catch {
     el.innerHTML = '<p style="font-size:var(--text-xs);color:var(--text-muted)">加载失败</p>';
   }

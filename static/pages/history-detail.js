@@ -47,6 +47,7 @@ function renderDetail(container, data) {
       <div class="tab" data-tab="techniques">ATT&CK (${data.attack_techniques?.length || 0})</div>
       <div class="tab" data-tab="cves">CVE 漏洞 (${data.cve_refs?.length || 0})</div>
       <div class="tab" data-tab="sources">数据来源 (${data.sources_used?.length || 0})</div>
+      <div class="tab" data-tab="diff">对比</div>
       <div class="tab" data-tab="trace">执行追踪</div>
     </div>
 
@@ -59,6 +60,7 @@ function renderDetail(container, data) {
     techniques: () => renderTechniquesTab(data),
     cves: () => renderCVETab(data),
     sources: () => renderSourcesTab(data),
+    diff: () => renderDiffTab(data),
     trace: () => renderTraceTab(data),
   };
 
@@ -219,6 +221,78 @@ function renderSourcesTab(data) {
       </tbody>
     </table>
   `;
+}
+
+async function renderDiffTab(data) {
+  const el = document.getElementById('tab-content');
+  el.innerHTML = `
+    <div style="margin-bottom:var(--space-3)">
+      <p style="font-size:var(--text-sm);color:var(--text-muted);margin-bottom:var(--space-2)">选择要对比的历史分析：</p>
+      <div style="display:flex;gap:var(--space-2);align-items:center">
+        <select id="diff-compare-id" class="input" style="max-width:400px">
+          <option value="">加载中...</option>
+        </select>
+        <button class="btn btn-sm btn-primary" onclick="window._runDiff('${data.id}')">对比</button>
+      </div>
+    </div>
+    <div id="diff-result"></div>
+  `;
+
+  // Load history list for selector
+  try {
+    const history = await API.history({ limit: 50 });
+    const select = document.getElementById('diff-compare-id');
+    select.innerHTML = '<option value="">选择对比目标...</option>' +
+      history.items
+        .filter(item => item.id !== data.id)
+        .map(item => `<option value="${item.id}">${escapeHtml(item.query)} (${item.created_at?.slice(0, 10) || ''})</option>`)
+        .join('');
+  } catch {
+    document.getElementById('diff-compare-id').innerHTML = '<option value="">加载失败</option>';
+  }
+
+  window._runDiff = async (id) => {
+    const compareId = document.getElementById('diff-compare-id').value;
+    if (!compareId) { showToast('请选择对比目标', 'error'); return; }
+    const resultEl = document.getElementById('diff-result');
+    resultEl.innerHTML = '<div class="skeleton" style="height:100px"></div>';
+
+    try {
+      const diff = await API.diffAnalyses(id, compareId);
+      if (!diff.diffs.length) {
+        resultEl.innerHTML = '<div class="empty-state"><p>两次分析无差异</p></div>';
+        return;
+      }
+      resultEl.innerHTML = `
+        <div style="display:flex;gap:var(--space-4);margin-bottom:var(--space-3);font-size:var(--text-xs);color:var(--text-muted)">
+          <span>A：${escapeHtml(diff.analysis_a.query)} (${diff.analysis_a.created_at?.slice(0, 16) || ''})</span>
+          <span>B：${escapeHtml(diff.analysis_b.query)} (${diff.analysis_b.created_at?.slice(0, 16) || ''})</span>
+        </div>
+        <table>
+          <thead><tr><th>字段</th><th>上次</th><th>本次</th><th>变化</th></tr></thead>
+          <tbody>
+            ${diff.diffs.map(d => `
+              <tr>
+                <td style="font-weight:600">${escapeHtml(d.field)}</td>
+                <td><code>${escapeHtml(d.old || '-')}</code></td>
+                <td><code>${escapeHtml(d.new || '-')}</code></td>
+                <td>${_diffIndicator(d.old, d.new)}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+        <p style="font-size:var(--text-xs);color:var(--text-muted);margin-top:var(--space-2)">共 ${diff.diff_count} 项差异</p>
+      `;
+    } catch (err) {
+      resultEl.innerHTML = `<div class="empty-state"><p>对比失败：${escapeHtml(err.message)}</p></div>`;
+    }
+  };
+}
+
+function _diffIndicator(oldVal, newVal) {
+  if (!oldVal || oldVal === '-') return '<span class="badge badge-success">新增</span>';
+  if (!newVal || newVal === '-') return '<span class="badge badge-error">移除</span>';
+  return '<span class="badge badge-warning">变更</span>';
 }
 
 function renderTraceTab(data) {

@@ -60,6 +60,8 @@ const API = {
 
   stats: () => API.get('/stats'),
 
+  diffAnalyses: (id, compareId) => API.get(`/history/${id}/diff/${compareId}`),
+
   trustedSources: () => API.get('/settings/trusted_sources'),
 
   addTrustedSource: (domain, note) => API.post('/settings/trusted_sources', { domain, note }),
