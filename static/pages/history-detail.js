@@ -1,5 +1,6 @@
 import API from '../lib/api.js';
 import { formatDate, formatDuration, statusBadge, confidenceBadge, tlpBadge, iocChip, copyToClipboard, showToast } from '../lib/utils.js';
+import { getTechniqueNameZh, getTacticNameZh } from '../lib/attck-i18n.js';
 
 export async function renderHistoryDetail(container, id) {
   container.innerHTML = '<div class="skeleton" style="height:400px"></div>';
@@ -164,14 +165,17 @@ function renderTechniquesTab(data) {
     <table>
       <thead><tr><th>技术 ID</th><th>名称</th><th>战术</th><th>置信度</th></tr></thead>
       <tbody>
-        ${data.attack_techniques.map(t => `
+        ${data.attack_techniques.map(t => {
+          const nameZh = getTechniqueNameZh(t.technique_id, t.technique_name);
+          const tacticZh = getTacticNameZh(t.tactic || '');
+          return `
           <tr>
             <td><code>${t.technique_id}</code></td>
-            <td>${escapeHtml(t.technique_name || '')}</td>
-            <td>${escapeHtml(t.tactic || '')}</td>
+            <td>${escapeHtml(nameZh)}${nameZh !== t.technique_name ? `<br><span style="font-size:var(--text-xs);color:var(--text-muted)">${escapeHtml(t.technique_name || '')}</span>` : ''}</td>
+            <td>${escapeHtml(tacticZh)}</td>
             <td>${confidenceBadge(t.confidence)}</td>
           </tr>
-        `).join('')}
+        `}).join('')}
       </tbody>
     </table>
   `;
