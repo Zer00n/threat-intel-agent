@@ -23,7 +23,7 @@ async def health_check(db: AsyncSession = Depends(get_db)):
     if not db_ok:
         return {"status": "degraded", "db": False}
 
-    return {"status": "ok", "db": True, "version": "0.5.0"}
+    return {"status": "ok", "db": True, "version": "0.6.0"}
 
 
 @router.get("/stats")

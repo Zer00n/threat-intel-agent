@@ -731,3 +731,25 @@
   #main-content { margin-left: 0; }
   .analysis-layout { grid-template-columns: 1fr; }
 }
+
+/* ── New Layout (v0.6 migration) ── */
+
+#page-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: auto;
+}
+
+/* Workspace page: constrain overflow, let app-shell handle scrolling */
+body.page-workspace #page-container {
+  overflow: hidden;
+}
+
+#toast-container {
+  position: fixed;
+  bottom: var(--space-5);
+  right: var(--space-5);
+  z-index: var(--z-toast);
+}

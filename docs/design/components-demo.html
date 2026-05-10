@@ -1,0 +1,310 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Components — Threat Intel Agent</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="components.css">
+<style>
+  body { padding: 32px 40px 96px; }
+  .demo-toolbar {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 32px; gap: 12px;
+  }
+  .demo-toolbar h1 { margin: 0; font-size: 22px; font-weight: 600; }
+  .demo-toolbar p  { margin: 0; color: var(--text-muted); font-size: 13px; }
+  .demo-section { margin-bottom: 40px; }
+  .demo-section__head {
+    display: flex; align-items: baseline; gap: 12px;
+    border-bottom: 1px solid var(--border-default); padding-bottom: 8px; margin-bottom: 16px;
+  }
+  .demo-section__head h2 { margin: 0; font-size: 14px; font-weight: 600; color: var(--text-primary); }
+  .demo-section__head span { color: var(--text-muted); font-size: 12px; font-family: var(--font-mono); }
+  .demo-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; padding: 12px 0; }
+  .demo-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .demo-grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .demo-label { font-size: 12px; color: var(--text-muted); width: 96px; flex-shrink: 0; font-family: var(--font-mono); }
+  pre.demo-code {
+    margin: 8px 0 0; padding: 8px 12px; background: var(--bg-subtle);
+    border: 1px solid var(--border-subtle); border-radius: var(--radius-md);
+    font-size: 11.5px; color: var(--text-secondary); overflow-x: auto;
+  }
+</style>
+</head>
+<body>
+
+<div class="demo-toolbar">
+  <div>
+    <h1>Components — Threat Intel Agent</h1>
+    <p>step 2 / 4 · 仅样式预览,所有组件用 tokens.css 变量驱动</p>
+  </div>
+  <div class="ti-row" style="gap:8px">
+    <button class="ti-btn ti-btn--secondary ti-btn--sm" id="theme-toggle">Toggle theme</button>
+  </div>
+</div>
+
+<!-- ============== 1. Buttons ============== -->
+<section class="demo-section">
+  <div class="demo-section__head"><h2>Button</h2><span>.ti-btn / --primary --secondary --ghost --danger</span></div>
+  <div class="demo-row">
+    <span class="demo-label">default</span>
+    <button class="ti-btn ti-btn--primary">Run analysis</button>
+    <button class="ti-btn ti-btn--secondary">Cancel</button>
+    <button class="ti-btn ti-btn--ghost">More</button>
+    <button class="ti-btn ti-btn--danger">Delete</button>
+  </div>
+  <div class="demo-row">
+    <span class="demo-label">disabled</span>
+    <button class="ti-btn ti-btn--primary" disabled>Run</button>
+    <button class="ti-btn ti-btn--secondary" disabled>Cancel</button>
+    <button class="ti-btn ti-btn--ghost" disabled>More</button>
+    <button class="ti-btn ti-btn--danger" disabled>Delete</button>
+  </div>
+  <div class="demo-row">
+    <span class="demo-label">sizes</span>
+    <button class="ti-btn ti-btn--primary ti-btn--sm">Small</button>
+    <button class="ti-btn ti-btn--primary">Default</button>
+    <button class="ti-btn ti-btn--primary ti-btn--lg">Large</button>
+  </div>
+  <div class="demo-row">
+    <span class="demo-label">group</span>
+    <div class="ti-btn-group">
+      <button class="ti-btn">MD</button>
+      <button class="ti-btn">PDF</button>
+      <button class="ti-btn">STIX</button>
+      <button class="ti-btn">Sigma</button>
+    </div>
+  </div>
+</section>
+
+<!-- ============== 2. Input / Textarea ============== -->
+<section class="demo-section">
+  <div class="demo-section__head"><h2>Input · Textarea · Select</h2><span>.ti-input · .ti-textarea · .ti-select</span></div>
+  <div class="demo-grid-2">
+    <div>
+      <input class="ti-input" placeholder="CVE-2024-3094" />
+    </div>
+    <div>
+      <div class="ti-input-wrap">
+        <svg class="ti-input__icon" viewBox="0 0 16 16" fill="none">
+          <circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.5"/>
+          <path d="M11 11l3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+        <input class="ti-input ti-input--with-icon" placeholder="Search history…" />
+      </div>
+    </div>
+    <div>
+      <select class="ti-select">
+        <option>TLP:CLEAR</option>
+        <option>TLP:GREEN</option>
+        <option>TLP:AMBER</option>
+        <option>TLP:RED</option>
+      </select>
+    </div>
+    <div>
+      <input class="ti-input" disabled value="disabled" />
+    </div>
+    <div style="grid-column: 1 / -1">
+      <textarea class="ti-textarea" rows="3" placeholder="输入 CVE 编号、ATT&CK 技术编号、APT 组织名或 IOC…"></textarea>
+    </div>
+  </div>
+</section>
+
+<!-- ============== 3. Card ============== -->
+<section class="demo-section">
+  <div class="demo-section__head"><h2>Card</h2><span>.ti-card / .ti-card__header /__body</span></div>
+  <div class="demo-grid-2">
+    <div class="ti-card">
+      <div style="font-weight:600; margin-bottom:6px">Plain card</div>
+      <div style="color: var(--text-secondary); font-size: 13px;">没有 header,padding 居中铺满。用作信息块、列表项容器。</div>
+    </div>
+    <div class="ti-card ti-card--flush">
+      <div class="ti-card__header">
+        <div>
+          <h3 class="ti-card__title">CVE-2024-3094</h3>
+          <div class="ti-card__subtitle">XZ Utils backdoor · disclosed 2024-03-29</div>
+        </div>
+        <div class="ti-card__actions">
+          <button class="ti-btn ti-btn--ghost ti-btn--sm">⋯</button>
+        </div>
+      </div>
+      <div class="ti-card__body" style="padding: 16px 20px;">
+        Critical supply-chain compromise targeting OpenSSH via liblzma.
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============== 4. Badges ============== -->
+<section class="demo-section">
+  <div class="demo-section__head"><h2>Badge</h2><span>.ti-badge / --confidence-* / --tlp-*</span></div>
+  <div class="demo-row">
+    <span class="demo-label">default</span>
+    <span class="ti-badge">Default</span>
+    <span class="ti-badge ti-badge--solid">Solid</span>
+    <span class="ti-badge ti-badge--success">success</span>
+    <span class="ti-badge ti-badge--warning">warning</span>
+    <span class="ti-badge ti-badge--error">error</span>
+    <span class="ti-badge ti-badge--info">info</span>
+  </div>
+  <div class="demo-row">
+    <span class="demo-label">confidence</span>
+    <span class="ti-badge ti-badge--confidence-high">High · 92%</span>
+    <span class="ti-badge ti-badge--confidence-medium">Medium · 71%</span>
+    <span class="ti-badge ti-badge--confidence-low">Low · 38%</span>
+  </div>
+  <div class="demo-row">
+    <span class="demo-label">TLP</span>
+    <span class="ti-badge ti-badge--tlp-white">TLP:CLEAR</span>
+    <span class="ti-badge ti-badge--tlp-green">TLP:GREEN</span>
+    <span class="ti-badge ti-badge--tlp-amber">TLP:AMBER</span>
+    <span class="ti-badge ti-badge--tlp-red">TLP:RED</span>
+  </div>
+</section>
+
+<!-- ============== 5. Chip (IOC) ============== -->
+<section class="demo-section">
+  <div class="demo-section__head"><h2>Chip — IOC</h2><span>.ti-chip / --ipv4 --domain --hash --url</span></div>
+  <div class="demo-row">
+    <span class="ti-chip ti-chip--ipv4">
+      <span class="ti-chip__icon" aria-hidden="true">IP</span>
+      <span class="ti-chip__value">203.0.113.42</span>
+    </span>
+    <span class="ti-chip ti-chip--domain">
+      <span class="ti-chip__icon" aria-hidden="true">DN</span>
+      <span class="ti-chip__value">malware-delivery[.]example</span>
+    </span>
+    <span class="ti-chip ti-chip--hash">
+      <span class="ti-chip__icon" aria-hidden="true">#</span>
+      <span class="ti-chip__value">a3f5e9…b21c</span>
+    </span>
+    <span class="ti-chip ti-chip--url">
+      <span class="ti-chip__icon" aria-hidden="true">UR</span>
+      <span class="ti-chip__value">hxxps://c2[.]example/beacon</span>
+    </span>
+  </div>
+</section>
+
+<!-- ============== 6. Tag ============== -->
+<section class="demo-section">
+  <div class="demo-section__head"><h2>Tag</h2><span>.ti-tag</span></div>
+  <div class="demo-row">
+    <span class="ti-tag">CVE-2024-3094</span>
+    <span class="ti-tag ti-tag--accent">T1059.001</span>
+    <span class="ti-tag">CWE-506</span>
+    <span class="ti-tag ti-tag--accent">TA0002</span>
+  </div>
+</section>
+
+<!-- ============== 7. StatusDot ============== -->
+<section class="demo-section">
+  <div class="demo-section__head"><h2>StatusDot</h2><span>.ti-status-dot--running/completed/failed/waiting/interrupted</span></div>
+  <div class="demo-row">
+    <span class="ti-row" style="gap:8px"><span class="ti-status-dot ti-status-dot--running"></span> running</span>
+    <span class="ti-row" style="gap:8px"><span class="ti-status-dot ti-status-dot--completed"></span> completed</span>
+    <span class="ti-row" style="gap:8px"><span class="ti-status-dot ti-status-dot--failed"></span> failed</span>
+    <span class="ti-row" style="gap:8px"><span class="ti-status-dot ti-status-dot--waiting"></span> waiting</span>
+    <span class="ti-row" style="gap:8px"><span class="ti-status-dot ti-status-dot--interrupted"></span> interrupted</span>
+  </div>
+</section>
+
+<!-- ============== 8. Tooltip ============== -->
+<section class="demo-section">
+  <div class="demo-section__head"><h2>Tooltip</h2><span>data-tooltip · 纯 CSS · hover 触发</span></div>
+  <div class="demo-row">
+    <span class="ti-tooltip" data-tooltip="T1059.001 — Command and Scripting Interpreter: PowerShell">
+      <span class="ti-tag ti-tag--accent">T1059.001</span>
+    </span>
+    <span class="ti-tooltip" data-tooltip="EPSS: 0.94 · KEV: yes">
+      <span class="ti-badge ti-badge--confidence-high">High · 92%</span>
+    </span>
+    <span class="ti-tooltip" data-tooltip="Hover-only · 无 JS">
+      <button class="ti-btn ti-btn--ghost ti-btn--sm">Hover me</button>
+    </span>
+  </div>
+</section>
+
+<!-- ============== 9. Modal (skeleton) ============== -->
+<section class="demo-section">
+  <div class="demo-section__head"><h2>Modal</h2><span>.ti-modal-backdrop[data-open] · 静态展示</span></div>
+  <div style="position: relative; height: 280px; border: 1px dashed var(--border-default); border-radius: var(--radius-md); overflow: hidden;">
+    <div class="ti-modal-backdrop" data-open style="position:absolute">
+      <div class="ti-modal" role="dialog" aria-modal="true">
+        <div class="ti-modal__header">
+          <h2 class="ti-modal__title">Delete report?</h2>
+          <button class="ti-btn ti-btn--ghost ti-btn--sm" aria-label="Close">✕</button>
+        </div>
+        <div class="ti-modal__body">
+          This will permanently remove <span class="ti-mono">CVE-2024-3094</span> and all associated IOCs, Sigma rules and trace logs. This action cannot be undone.
+        </div>
+        <div class="ti-modal__footer">
+          <button class="ti-btn ti-btn--secondary">Cancel</button>
+          <button class="ti-btn ti-btn--danger">Delete</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============== 10. Toast ============== -->
+<section class="demo-section">
+  <div class="demo-section__head"><h2>Toast</h2><span>.ti-toast · info / success / error</span></div>
+  <div style="position: relative; height: 240px; border: 1px dashed var(--border-default); border-radius: var(--radius-md); overflow: hidden; padding: 16px;">
+    <div class="ti-toast-stack" style="position: absolute; bottom: 16px; right: 16px;">
+      <div class="ti-toast ti-toast--info">
+        <span class="ti-toast__icon">i</span>
+        <div class="ti-toast__body">
+          <div class="ti-toast__title">Path switched</div>
+          <div class="ti-toast__msg">Using cached NVD response (TTL 4h).</div>
+        </div>
+        <button class="ti-toast__close" aria-label="Close">✕</button>
+      </div>
+      <div class="ti-toast ti-toast--success">
+        <span class="ti-toast__icon">✓</span>
+        <div class="ti-toast__body">
+          <div class="ti-toast__title">Export ready</div>
+          <div class="ti-toast__msg">cve-2024-3094-bundle.zip · 1.2 MB</div>
+        </div>
+        <button class="ti-toast__close">✕</button>
+      </div>
+      <div class="ti-toast ti-toast--error">
+        <span class="ti-toast__icon">!</span>
+        <div class="ti-toast__body">
+          <div class="ti-toast__title">EPSS source unreachable</div>
+          <div class="ti-toast__msg">Continuing with NVD + KEV only. Retry later.</div>
+        </div>
+        <button class="ti-toast__close">✕</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============== 11. Skeleton ============== -->
+<section class="demo-section">
+  <div class="demo-section__head"><h2>SkeletonLoader</h2><span>.ti-skeleton / --text --title --block --circle</span></div>
+  <div class="ti-card" style="display: flex; gap: 16px; align-items: flex-start;">
+    <span class="ti-skeleton ti-skeleton--circle" style="width:36px; height:36px; flex-shrink:0;"></span>
+    <div style="flex:1; display: flex; flex-direction: column; gap: 8px;">
+      <span class="ti-skeleton ti-skeleton--title" style="width: 38%;"></span>
+      <span class="ti-skeleton ti-skeleton--text"  style="width: 92%;"></span>
+      <span class="ti-skeleton ti-skeleton--text"  style="width: 80%;"></span>
+      <span class="ti-skeleton ti-skeleton--text"  style="width: 65%;"></span>
+      <span class="ti-skeleton ti-skeleton--block" style="height: 80px; margin-top: 8px;"></span>
+    </div>
+  </div>
+</section>
+
+<script>
+  // 仅用于这个 demo 页面切换主题,真实业务由你的代码控制
+  document.getElementById('theme-toggle').addEventListener('click', () => {
+    const html = document.documentElement;
+    html.dataset.theme = html.dataset.theme === 'dark' ? 'light' : 'dark';
+  });
+</script>
+
+</body>
+</html>

@@ -135,7 +135,7 @@ async def run_analysis(
     except BudgetExceededError as e:
         logger.warning("budget_exceeded", task_id=task_id, error=str(e))
         await emit("budget_exceeded", {
-            "reason": str(e),
+            "message": str(e),
             "used_token": llm.total_usage.input_tokens + llm.total_usage.output_tokens,
             "limit_token": settings.single_task_token_limit,
         })

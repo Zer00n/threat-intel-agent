@@ -55,9 +55,16 @@ export function iocChip(ioc) {
 
 export function showToast(message, type = 'success') {
   const container = document.getElementById('toast-container');
+  const icons = { success: '✓', error: '!', info: 'i' };
   const toast = document.createElement('div');
-  toast.className = `toast toast-${type}`;
-  toast.textContent = message;
+  toast.className = `ti-toast ti-toast--${type}`;
+  toast.innerHTML = `
+    <span class="ti-toast__icon">${icons[type] || 'i'}</span>
+    <div class="ti-toast__body">
+      <div class="ti-toast__msg">${message}</div>
+    </div>
+    <button class="ti-toast__close" onclick="this.parentElement.remove()">✕</button>
+  `;
   container.appendChild(toast);
   setTimeout(() => toast.remove(), 3000);
 }

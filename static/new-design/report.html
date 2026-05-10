@@ -1,0 +1,783 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>报告 RPT-3084 — Threat Intel Agent</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="components.css">
+<link rel="stylesheet" href="report.css">
+</head>
+<body>
+
+<!-- ============================================================
+     顶部 Header
+     ============================================================ -->
+<header class="app-header">
+  <div class="app-header__left">
+    <div class="app-header__brand">
+      <span class="app-header__logo" aria-hidden="true">TI</span>
+      <span>威胁情报调研助手</span>
+    </div>
+  </div>
+  <div class="app-header__center">
+    <nav class="app-header__breadcrumb" aria-label="breadcrumb">
+      <a href="workspace.html">工作区</a>
+      <span class="sep">›</span>
+      <a href="#">报告</a>
+      <span class="sep">›</span>
+      <span class="app-header__taskid">RPT-3084</span>
+    </nav>
+  </div>
+  <div class="app-header__right">
+    <button class="app-header__icon-btn" id="theme-toggle" aria-label="切换主题">
+      <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M11.5 8a3.5 3.5 0 1 1-3.5-3.5"/><path d="M11.5 4.5L11.5 8 14 8" stroke-linecap="round"/>
+      </svg>
+    </button>
+    <button class="app-header__icon-btn" aria-label="设置">
+      <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5">
+        <circle cx="8" cy="8" r="2"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3 3l1.4 1.4M11.6 11.6L13 13M3 13l1.4-1.4M11.6 4.4L13 3"/>
+      </svg>
+    </button>
+  </div>
+</header>
+
+<div class="report-page">
+
+  <!-- ============================================================
+       元信息条
+       ============================================================ -->
+  <section class="report-meta" data-screen-label="Report · Meta">
+    <div class="report-meta__inner">
+      <div class="report-meta__title-row">
+        <div>
+          <h1 class="report-meta__title">CVE-2024-3094 · XZ Utils 后门</h1>
+          <div class="report-meta__sub">
+            报告 RPT-3084 · 任务 TI-2476 · 生成于 2026-05-09 14:26:11 · 耗时 1m 47s
+          </div>
+        </div>
+        <div class="report-meta__badges">
+          <span class="ti-badge ti-badge--info">CVE 调研</span>
+          <span class="ti-badge ti-badge--tlp-amber">TLP:AMBER</span>
+          <span class="ti-badge ti-badge--confidence-high">置信度 92%</span>
+          <span class="ti-badge ti-badge--error">CVSS 10.0</span>
+        </div>
+      </div>
+
+      <div class="report-meta__sources">
+        <span class="report-meta__sources-label">数据源覆盖</span>
+        <span class="source-pill" data-state="hit"><span class="source-pill__dot"></span>NVD</span>
+        <span class="source-pill" data-state="hit"><span class="source-pill__dot"></span>CISA KEV</span>
+        <span class="source-pill" data-state="hit"><span class="source-pill__dot"></span>EPSS</span>
+        <span class="source-pill" data-state="hit"><span class="source-pill__dot"></span>ATT&amp;CK</span>
+        <span class="source-pill" data-state="miss"><span class="source-pill__dot"></span>ExploitDB</span>
+        <span class="source-pill" data-state="hit"><span class="source-pill__dot"></span>GitHub</span>
+        <span class="source-pill" data-state="error"><span class="source-pill__dot"></span>VirusTotal</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       Tabs
+       ============================================================ -->
+  <nav class="tabs" role="tablist">
+    <div class="tabs__inner">
+      <button class="tab" data-active data-target="md" role="tab">
+        Markdown 报告
+      </button>
+      <button class="tab" data-target="ioc" role="tab">
+        IOC 列表 <span class="tab__count">14</span>
+      </button>
+      <button class="tab" data-target="cve" role="tab">
+        CVE 详情
+      </button>
+      <button class="tab" data-target="attack" role="tab">
+        ATT&amp;CK 矩阵 <span class="tab__count">5</span>
+      </button>
+      <button class="tab" data-target="sigma" role="tab">
+        Sigma 规则 <span class="tab__count">3</span>
+      </button>
+      <button class="tab" data-target="trace" role="tab">
+        调研轨迹
+      </button>
+    </div>
+  </nav>
+
+  <!-- ============================================================
+       Tab panels
+       ============================================================ -->
+  <section class="tabpanels">
+    <div class="tabpanels__inner">
+
+      <!-- ==================== Markdown 报告 ==================== -->
+      <div class="panel" data-active data-panel="md">
+        <article class="md">
+          <h1>CVE-2024-3094 · XZ Utils 后门</h1>
+          <blockquote>
+            CVE-2024-3094 是位于 <code>liblzma</code>(由 <code>xz-utils</code> 提供)中的供应链植入,
+            可在特定构建配置下通过 OpenSSH(systemd-notify 链路)实现远程未授权代码执行。
+            受影响版本:<code>5.6.0</code>、<code>5.6.1</code>。
+          </blockquote>
+
+          <h2>1. 概要</h2>
+          <p>
+            该后门由长期合规贡献者悄然植入。仅在 <code>x86_64</code>、<code>glibc</code> 系发行版构建中触发,
+            绕过条件依赖 <code>RPM_ARCH</code> 与 <code>DEB_HOST_GNU_TYPE</code> 等环境变量。
+          </p>
+          <ul>
+            <li>影响入口:OpenSSH 通过 <code>libsystemd</code> 间接链接 <code>liblzma</code>。</li>
+            <li>触发路径:RSA 公钥校验阶段,<code>RSA_public_decrypt</code> 被替换。</li>
+            <li>检测难度:载荷以混淆形式藏于二进制测试文件,源码仓库无显式可疑代码。</li>
+          </ul>
+
+          <h2>2. ATT&amp;CK 映射</h2>
+          <p>
+            主要落在
+            <span class="ti-tooltip" data-tooltip="供应链妥协 → 软件依赖与开发工具妥协"><span class="ti-tag ti-tag--accent">T1195.002</span></span>
+            与
+            <span class="ti-tooltip" data-tooltip="有效账户:经由可信凭证完成持久化"><span class="ti-tag ti-tag--accent">T1078</span></span>
+            。在防御侧,触达
+            <span class="ti-tag ti-tag--accent">M1051</span>
+            <span class="ti-tag ti-tag--accent">DS0022</span>
+            。
+          </p>
+
+          <h2>3. 关键 IOC(节选)</h2>
+          <p>
+            首次落盘的恶意构建产物哈希
+            <span class="ti-chip ti-chip--hash"><span class="ti-chip__icon">#</span><span class="ti-chip__value">a3f5e9c7…b21c</span></span>
+            ,经测试在
+            <span class="ti-chip ti-chip--ipv4"><span class="ti-chip__icon">IP</span><span class="ti-chip__value">203.0.113.42</span></span>
+            发出回连;域名
+            <span class="ti-chip ti-chip--domain"><span class="ti-chip__icon">DN</span><span class="ti-chip__value">jiat75[.]example</span></span>
+            被用作开发流水线下载源。完整列表见「IOC 列表」标签。
+          </p>
+
+          <h2>4. 缓解 / 处置建议</h2>
+          <ol>
+            <li>立即识别 <code>xz-utils 5.6.0 / 5.6.1</code> 装机情况;回滚到 <code>5.4.x</code>。</li>
+            <li>核对 <code>liblzma</code> 来源签名。</li>
+            <li>启用「Sigma 规则」标签生成的检测规则。</li>
+          </ol>
+          <pre><code>$ ldd $(which sshd) | grep liblzma
+$ rpm -qf /usr/lib64/liblzma.so.5
+$ apt list --installed 2&gt;/dev/null | grep -i xz</code></pre>
+        </article>
+      </div>
+
+      <!-- ==================== IOC 列表 ==================== -->
+      <div class="panel" data-panel="ioc">
+        <div class="ioc-toolbar">
+          <div class="ioc-toolbar__group">
+            <span class="ioc-toolbar__label">类型</span>
+            <span class="filter-chip" data-active style="display:inline-flex;align-items:center;gap:4px;height:22px;padding:0 var(--space-2);font-size:var(--text-xs);background:var(--accent-soft-bg);color:var(--accent-soft-fg);border-radius:var(--radius-sm);border:1px solid transparent;">全部 14</span>
+            <button class="ti-btn ti-btn--secondary ti-btn--sm">IPv4 · 3</button>
+            <button class="ti-btn ti-btn--secondary ti-btn--sm">Domain · 4</button>
+            <button class="ti-btn ti-btn--secondary ti-btn--sm">Hash · 5</button>
+            <button class="ti-btn ti-btn--secondary ti-btn--sm">URL · 2</button>
+          </div>
+          <div class="ioc-toolbar__group">
+            <span class="ioc-toolbar__label">置信度</span>
+            <select class="ti-select" style="height:28px;padding:0 28px 0 12px;font-size:var(--text-xs);width:auto;">
+              <option>全部</option><option>高</option><option>中</option><option>低</option>
+            </select>
+            <span class="ioc-toolbar__label" style="margin-left:var(--space-3);">Defang</span>
+            <label class="switch"><input type="checkbox" checked /><span class="switch__slider"></span></label>
+            <button class="ti-btn ti-btn--ghost ti-btn--sm">复制全部</button>
+            <button class="ti-btn ti-btn--secondary ti-btn--sm">导出 CSV</button>
+          </div>
+        </div>
+
+        <!-- IPv4 -->
+        <div class="ioc-group">
+          <div class="ioc-group__head">
+            <div class="ioc-group__type">
+              <span class="ti-chip ti-chip--ipv4"><span class="ti-chip__icon">IP</span></span>
+              IPv4 地址
+            </div>
+            <span class="ioc-group__count">3 条</span>
+          </div>
+          <div class="ioc-row">
+            <span class="ioc-row__value">203.0.113.42</span>
+            <span class="ioc-row__defanged">203.0.113[.]42</span>
+            <span><span class="ti-badge ti-badge--confidence-high">高 · 94%</span></span>
+            <span class="ioc-row__context">出现于「sshd 链路 RSA 校验阶段被劫持」段落,系社区分析中频繁引用的回连点。</span>
+            <span class="ioc-row__actions">
+              <button class="ti-btn ti-btn--ghost ti-btn--sm">复制原值</button>
+              <button class="ti-btn ti-btn--ghost ti-btn--sm">复制 defanged</button>
+            </span>
+          </div>
+          <div class="ioc-row">
+            <span class="ioc-row__value">198.51.100.7</span>
+            <span class="ioc-row__defanged">198.51.100[.]7</span>
+            <span><span class="ti-badge ti-badge--confidence-medium">中 · 71%</span></span>
+            <span class="ioc-row__context">见 GitHub PoC 仓库 README 列举的次要回连地址。</span>
+            <span class="ioc-row__actions">
+              <button class="ti-btn ti-btn--ghost ti-btn--sm">复制原值</button>
+              <button class="ti-btn ti-btn--ghost ti-btn--sm">复制 defanged</button>
+            </span>
+          </div>
+          <div class="ioc-row">
+            <span class="ioc-row__value">192.0.2.18</span>
+            <span class="ioc-row__defanged">192.0.2[.]18</span>
+            <span><span class="ti-badge ti-badge--confidence-low">低 · 38%</span></span>
+            <span class="ioc-row__context">单一来源提及,未能与其他报告交叉验证。</span>
+            <span class="ioc-row__actions">
+              <button class="ti-btn ti-btn--ghost ti-btn--sm">复制原值</button>
+              <button class="ti-btn ti-btn--ghost ti-btn--sm">复制 defanged</button>
+            </span>
+          </div>
+        </div>
+
+        <!-- Domain -->
+        <div class="ioc-group">
+          <div class="ioc-group__head">
+            <div class="ioc-group__type">
+              <span class="ti-chip ti-chip--domain"><span class="ti-chip__icon">DN</span></span>
+              域名
+            </div>
+            <span class="ioc-group__count">4 条</span>
+          </div>
+          <div class="ioc-row">
+            <span class="ioc-row__value">jiat75.example</span>
+            <span class="ioc-row__defanged">jiat75[.]example</span>
+            <span><span class="ti-badge ti-badge--confidence-high">高 · 88%</span></span>
+            <span class="ioc-row__context">提交者历史活动相关联,见社区 timeline 复盘第 3 节。</span>
+            <span class="ioc-row__actions">
+              <button class="ti-btn ti-btn--ghost ti-btn--sm">复制原值</button>
+              <button class="ti-btn ti-btn--ghost ti-btn--sm">复制 defanged</button>
+            </span>
+          </div>
+          <div class="ioc-row">
+            <span class="ioc-row__value">malware-delivery.example</span>
+            <span class="ioc-row__defanged">malware-delivery[.]example</span>
+            <span><span class="ti-badge ti-badge--confidence-medium">中 · 64%</span></span>
+            <span class="ioc-row__context">用作恶意构建产物的下载源(根据 sandbox 行为日志)。</span>
+            <span class="ioc-row__actions">
+              <button class="ti-btn ti-btn--ghost ti-btn--sm">复制原值</button>
+              <button class="ti-btn ti-btn--ghost ti-btn--sm">复制 defanged</button>
+            </span>
+          </div>
+        </div>
+
+        <!-- Hash -->
+        <div class="ioc-group">
+          <div class="ioc-group__head">
+            <div class="ioc-group__type">
+              <span class="ti-chip ti-chip--hash"><span class="ti-chip__icon">#</span></span>
+              文件哈希
+            </div>
+            <span class="ioc-group__count">5 条</span>
+          </div>
+          <div class="ioc-row">
+            <span class="ioc-row__value">a3f5e9c7d2…b21c</span>
+            <span class="ioc-row__defanged"><span class="ti-text-muted">— sha256 / 不需 defang</span></span>
+            <span><span class="ti-badge ti-badge--confidence-high">高 · 96%</span></span>
+            <span class="ioc-row__context">liblzma 5.6.0 落盘哈希,见 NIST NVD 与 RedHat CVE 数据库交叉确认。</span>
+            <span class="ioc-row__actions">
+              <button class="ti-btn ti-btn--ghost ti-btn--sm">复制</button>
+              <button class="ti-btn ti-btn--ghost ti-btn--sm">VT 查询</button>
+            </span>
+          </div>
+          <div class="ioc-row">
+            <span class="ioc-row__value">68dca6d92e…44a1</span>
+            <span class="ioc-row__defanged"><span class="ti-text-muted">— sha256 / 不需 defang</span></span>
+            <span><span class="ti-badge ti-badge--confidence-high">高 · 95%</span></span>
+            <span class="ioc-row__context">liblzma 5.6.1 落盘哈希。</span>
+            <span class="ioc-row__actions">
+              <button class="ti-btn ti-btn--ghost ti-btn--sm">复制</button>
+              <button class="ti-btn ti-btn--ghost ti-btn--sm">VT 查询</button>
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ==================== CVE 详情 ==================== -->
+      <div class="panel" data-panel="cve">
+        <div class="ti-card ti-card--flush" style="margin-bottom: var(--space-4);">
+          <div class="ti-card__header">
+            <div>
+              <h3 class="ti-card__title">CVE-2024-3094</h3>
+              <div class="ti-card__subtitle">XZ Utils 5.6.0/5.6.1 后门 · 披露于 2024-03-29</div>
+            </div>
+            <div class="ti-card__actions">
+              <a class="ti-btn ti-btn--secondary ti-btn--sm" href="#">NVD ↗</a>
+              <a class="ti-btn ti-btn--secondary ti-btn--sm" href="#">RedHat ↗</a>
+            </div>
+          </div>
+          <div style="padding: var(--space-5);">
+            <dl class="matrix-detail" style="display:grid;grid-template-columns:140px 1fr;gap:var(--space-2) var(--space-5);margin:0;border:none;padding:0;background:transparent;">
+              <dt style="color:var(--text-muted);font-size:var(--text-xs);text-transform:uppercase;letter-spacing:0.04em;">CVSS v3.1</dt>
+              <dd style="margin:0;"><span class="ti-badge ti-badge--error">10.0 · Critical</span> AV:N / AC:L / PR:N / UI:N / S:C / C:H / I:H / A:H</dd>
+              <dt style="color:var(--text-muted);font-size:var(--text-xs);text-transform:uppercase;letter-spacing:0.04em;">EPSS</dt>
+              <dd style="margin:0;"><span class="ti-mono">0.94</span> · 百分位 <span class="ti-mono">0.997</span> <span class="ti-badge ti-badge--warning" style="margin-left:8px;">P99</span></dd>
+              <dt style="color:var(--text-muted);font-size:var(--text-xs);text-transform:uppercase;letter-spacing:0.04em;">CISA KEV</dt>
+              <dd style="margin:0;"><span class="ti-badge ti-badge--success">已收录</span> · dateAdded <span class="ti-mono">2024-03-29</span></dd>
+              <dt style="color:var(--text-muted);font-size:var(--text-xs);text-transform:uppercase;letter-spacing:0.04em;">CWE</dt>
+              <dd style="margin:0;"><span class="ti-tag">CWE-506</span> Embedded Malicious Code</dd>
+              <dt style="color:var(--text-muted);font-size:var(--text-xs);text-transform:uppercase;letter-spacing:0.04em;">受影响包</dt>
+              <dd style="margin:0;font-family:var(--font-mono);font-size:var(--text-sm);">xz-utils &lt;= 5.6.1 (5.6.0, 5.6.1)</dd>
+              <dt style="color:var(--text-muted);font-size:var(--text-xs);text-transform:uppercase;letter-spacing:0.04em;">已修复版本</dt>
+              <dd style="margin:0;font-family:var(--font-mono);font-size:var(--text-sm);">5.4.6 (回滚) / 主流发行版 patch</dd>
+              <dt style="color:var(--text-muted);font-size:var(--text-xs);text-transform:uppercase;letter-spacing:0.04em;">参考</dt>
+              <dd style="margin:0;display:flex;flex-direction:column;gap:4px;">
+                <a href="#">tukaani.org · advisory</a>
+                <a href="#">openwall · oss-security</a>
+                <a href="#">RedHat Security Advisory</a>
+              </dd>
+            </dl>
+          </div>
+        </div>
+
+        <h2 class="md" style="margin: 0 0 var(--space-3); font-size: var(--text-lg);">CWSS 向量分解</h2>
+        <table class="md" style="width:100%;border-collapse:collapse;font-size:var(--text-sm);">
+          <thead><tr><th>维度</th><th>值</th><th>含义</th></tr></thead>
+          <tbody>
+            <tr><td><span class="ti-tag">AV</span></td><td><span class="ti-mono">N</span></td><td>Network — 可经网络发起</td></tr>
+            <tr><td><span class="ti-tag">AC</span></td><td><span class="ti-mono">L</span></td><td>Low — 攻击复杂度低</td></tr>
+            <tr><td><span class="ti-tag">PR</span></td><td><span class="ti-mono">N</span></td><td>None — 不需要任何权限</td></tr>
+            <tr><td><span class="ti-tag">UI</span></td><td><span class="ti-mono">N</span></td><td>None — 不需要用户交互</td></tr>
+            <tr><td><span class="ti-tag">C/I/A</span></td><td><span class="ti-mono">H/H/H</span></td><td>机密性 / 完整性 / 可用性 全部高影响</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- ==================== ATT&CK 矩阵 ==================== -->
+      <div class="panel" data-panel="attack">
+        <div class="matrix-wrap">
+          <div class="matrix-legend">
+            <span>命中 5 个技术,跨 3 个 tactic · 横轴 tactic / 纵轴 technique</span>
+            <div class="legend-scale">
+              <span>无</span>
+              <span class="legend-scale__cell"></span>
+              <span class="legend-scale__cell" style="background: color-mix(in oklab, var(--accent-primary) 8%, var(--bg-elevated));"></span>
+              <span class="legend-scale__cell" style="background: color-mix(in oklab, var(--accent-primary) 18%, var(--bg-elevated));"></span>
+              <span class="legend-scale__cell" style="background: color-mix(in oklab, var(--accent-primary) 30%, var(--bg-elevated));"></span>
+              <span class="legend-scale__cell" style="background: var(--accent-primary);"></span>
+              <span>强证据</span>
+            </div>
+          </div>
+          <div class="matrix-scroll">
+            <div class="matrix">
+              <!-- 14 tactics (Enterprise) -->
+              <div class="matrix__col">
+                <div class="matrix__head">Reconnaissance<span class="num">TA0043</span></div>
+                <div class="matrix__cell">主动扫描<span class="tid">T1595</span></div>
+                <div class="matrix__cell">收集受害者主机信息<span class="tid">T1592</span></div>
+              </div>
+              <div class="matrix__col">
+                <div class="matrix__head">Resource Development<span class="num">TA0042</span></div>
+                <div class="matrix__cell">获取基础设施<span class="tid">T1583</span></div>
+                <div class="matrix__cell" data-hit="2">建立账户<span class="tid">T1585</span></div>
+                <div class="matrix__cell" data-hit="2">破坏供应链<span class="tid">T1195</span></div>
+              </div>
+              <div class="matrix__col">
+                <div class="matrix__head">Initial Access<span class="num">TA0001</span></div>
+                <div class="matrix__cell">外部远程服务<span class="tid">T1133</span></div>
+                <div class="matrix__cell" data-hit="4">供应链妥协<span class="tid">T1195.002</span></div>
+                <div class="matrix__cell" data-hit="3">有效账户<span class="tid">T1078</span></div>
+              </div>
+              <div class="matrix__col">
+                <div class="matrix__head">Execution<span class="num">TA0002</span></div>
+                <div class="matrix__cell">命令与脚本解释器<span class="tid">T1059</span></div>
+                <div class="matrix__cell" data-hit="2">用户执行<span class="tid">T1204</span></div>
+              </div>
+              <div class="matrix__col">
+                <div class="matrix__head">Persistence<span class="num">TA0003</span></div>
+                <div class="matrix__cell" data-hit="3">劫持执行流<span class="tid">T1574</span></div>
+                <div class="matrix__cell">系统服务<span class="tid">T1543</span></div>
+              </div>
+              <div class="matrix__col">
+                <div class="matrix__head">Privilege Escalation<span class="num">TA0004</span></div>
+                <div class="matrix__cell">滥用权限控制<span class="tid">T1548</span></div>
+                <div class="matrix__cell">访问令牌操控<span class="tid">T1134</span></div>
+              </div>
+              <div class="matrix__col">
+                <div class="matrix__head">Defense Evasion<span class="num">TA0005</span></div>
+                <div class="matrix__cell" data-hit="2">混淆文件或信息<span class="tid">T1027</span></div>
+                <div class="matrix__cell">删除指标<span class="tid">T1070</span></div>
+                <div class="matrix__cell">伪装<span class="tid">T1036</span></div>
+              </div>
+              <div class="matrix__col">
+                <div class="matrix__head">Credential Access<span class="num">TA0006</span></div>
+                <div class="matrix__cell">操作系统凭据转储<span class="tid">T1003</span></div>
+                <div class="matrix__cell">暴力破解<span class="tid">T1110</span></div>
+              </div>
+              <div class="matrix__col">
+                <div class="matrix__head">Discovery<span class="num">TA0007</span></div>
+                <div class="matrix__cell">系统信息发现<span class="tid">T1082</span></div>
+                <div class="matrix__cell">远程系统发现<span class="tid">T1018</span></div>
+              </div>
+              <div class="matrix__col">
+                <div class="matrix__head">Lateral Movement<span class="num">TA0008</span></div>
+                <div class="matrix__cell">远程服务<span class="tid">T1021</span></div>
+                <div class="matrix__cell">内部鱼叉<span class="tid">T1534</span></div>
+              </div>
+              <div class="matrix__col">
+                <div class="matrix__head">Collection<span class="num">TA0009</span></div>
+                <div class="matrix__cell">本地系统数据<span class="tid">T1005</span></div>
+              </div>
+              <div class="matrix__col">
+                <div class="matrix__head">C&amp;C<span class="num">TA0011</span></div>
+                <div class="matrix__cell">应用层协议<span class="tid">T1071</span></div>
+                <div class="matrix__cell">加密通道<span class="tid">T1573</span></div>
+              </div>
+              <div class="matrix__col">
+                <div class="matrix__head">Exfiltration<span class="num">TA0010</span></div>
+                <div class="matrix__cell">通过 C2 渠道外传<span class="tid">T1041</span></div>
+              </div>
+              <div class="matrix__col">
+                <div class="matrix__head">Impact<span class="num">TA0040</span></div>
+                <div class="matrix__cell">数据加密影响<span class="tid">T1486</span></div>
+                <div class="matrix__cell">服务停止<span class="tid">T1489</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 详情侧栏(默认显示当前选中,占位形式) -->
+        <div class="matrix-detail">
+          <div class="matrix-detail__head">
+            <span class="ti-tag ti-tag--accent">T1195.002</span>
+            <span class="matrix-detail__title">供应链妥协 — 软件依赖与开发工具妥协</span>
+            <span class="ti-badge ti-badge--success" style="margin-left:auto;">强证据</span>
+          </div>
+          <dl>
+            <dt>Tactic</dt><dd>Initial Access (TA0001)</dd>
+            <dt>子技术</dt><dd>T1195.002 — Compromise Software Dependencies and Development Tools</dd>
+            <dt>命中证据</dt><dd>liblzma 5.6.0/5.6.1 上游 commit、构建脚本中的 dropper、二进制测试样本中的 payload。</dd>
+            <dt>关联缓解</dt><dd>M1051 更新软件 · M1016 漏洞扫描 · M1054 软件配置</dd>
+            <dt>关联数据源</dt><dd>DS0022 文件创建/修改 · DS0028 应用日志</dd>
+          </dl>
+        </div>
+      </div>
+
+      <!-- ==================== Sigma 规则 ==================== -->
+      <div class="panel" data-panel="sigma">
+        <div class="sigma-banner">
+          <span class="sigma-banner__icon">!</span>
+          <div>
+            <strong>AI 生成规则,需人工审核后再投入生产。</strong>
+            建议先在测试环境观察 24 小时,确认误报率与覆盖率;如有调整请同步至 Critic Agent 反馈链路。
+          </div>
+        </div>
+
+        <article class="sigma-card">
+          <div class="sigma-card__head">
+            <div>
+              <span class="sigma-card__title">XZ Utils 后门 — sshd 异常加载 liblzma</span>
+              <span class="sigma-card__id">id: 8b2a4d1e-9c30-4f7e-8a1b-cve20243094</span>
+            </div>
+            <div class="ti-row" style="gap: var(--space-2);">
+              <span class="ti-badge ti-badge--confidence-high">高置信</span>
+              <button class="ti-btn ti-btn--secondary ti-btn--sm">复制</button>
+              <button class="ti-btn ti-btn--secondary ti-btn--sm">下载</button>
+            </div>
+          </div>
+          <div class="sigma-card__meta">
+            <span><span class="ti-text-muted">level:</span> high</span>
+            <span><span class="ti-text-muted">logsource:</span> linux/process_creation</span>
+            <span><span class="ti-text-muted">tags:</span> attack.initial_access · attack.t1195.002</span>
+          </div>
+<pre class="sigma-card__yaml"><span class="ykw">title</span><span class="yk">:</span> <span class="ys">XZ Utils Backdoor - sshd loads compromised liblzma</span>
+<span class="ykw">id</span><span class="yk">:</span> <span class="ys">8b2a4d1e-9c30-4f7e-8a1b-cve20243094</span>
+<span class="ykw">status</span><span class="yk">:</span> <span class="ys">experimental</span>
+<span class="ykw">description</span><span class="yk">:</span> <span class="ys">|</span>
+  Detect <span class="ys">sshd</span> resolving <span class="ys">liblzma.so.5</span> with sha256 matching
+  the known compromised builds (5.6.0 / 5.6.1).
+<span class="ykw">references</span><span class="yk">:</span>
+  <span class="yk">-</span> <span class="ys">https://nvd.nist.gov/vuln/detail/CVE-2024-3094</span>
+<span class="ykw">author</span><span class="yk">:</span> <span class="ys">Threat Intel Agent (auto)</span>
+<span class="ykw">date</span><span class="yk">:</span> <span class="ys">2026/05/09</span>
+<span class="ykw">logsource</span><span class="yk">:</span>
+  <span class="ykw">product</span><span class="yk">:</span> <span class="ys">linux</span>
+  <span class="ykw">category</span><span class="yk">:</span> <span class="ys">process_creation</span>
+<span class="ykw">detection</span><span class="yk">:</span>
+  <span class="ykw">selection_proc</span><span class="yk">:</span>
+    <span class="ykw">Image</span><span class="yk">|</span>endswith<span class="yk">:</span> <span class="ys">'/sshd'</span>
+  <span class="ykw">selection_lib</span><span class="yk">:</span>
+    <span class="ykw">LoadedImage</span><span class="yk">|</span>endswith<span class="yk">:</span> <span class="ys">'liblzma.so.5'</span>
+    <span class="ykw">Sha256</span><span class="yk">:</span>
+      <span class="yk">-</span> <span class="ys">'a3f5e9c7d2…b21c'</span>  <span class="yc"># liblzma 5.6.0</span>
+      <span class="yk">-</span> <span class="ys">'68dca6d92e…44a1'</span>  <span class="yc"># liblzma 5.6.1</span>
+  <span class="ykw">condition</span><span class="yk">:</span> <span class="ys">selection_proc and selection_lib</span>
+<span class="ykw">falsepositives</span><span class="yk">:</span>
+  <span class="yk">-</span> <span class="ys">Mirror artifacts repackaged from upstream</span>
+<span class="ykw">level</span><span class="yk">:</span> <span class="yn">high</span>
+<span class="ykw">tags</span><span class="yk">:</span>
+  <span class="yk">-</span> <span class="ys">attack.initial_access</span>
+  <span class="yk">-</span> <span class="ys">attack.t1195.002</span></pre>
+        </article>
+
+        <article class="sigma-card">
+          <div class="sigma-card__head">
+            <div>
+              <span class="sigma-card__title">出站连接至已知 C2 — 203.0.113.42</span>
+              <span class="sigma-card__id">id: 9f1b3a72-…-c2-203</span>
+            </div>
+            <div class="ti-row" style="gap: var(--space-2);">
+              <span class="ti-badge ti-badge--confidence-medium">中置信</span>
+              <button class="ti-btn ti-btn--secondary ti-btn--sm">复制</button>
+            </div>
+          </div>
+          <div class="sigma-card__meta">
+            <span><span class="ti-text-muted">level:</span> medium</span>
+            <span><span class="ti-text-muted">logsource:</span> firewall / netflow</span>
+            <span><span class="ti-text-muted">tags:</span> attack.command_and_control</span>
+          </div>
+<pre class="sigma-card__yaml"><span class="ykw">title</span><span class="yk">:</span> <span class="ys">Outbound to known C2 (CVE-2024-3094)</span>
+<span class="ykw">logsource</span><span class="yk">:</span>
+  <span class="ykw">category</span><span class="yk">:</span> <span class="ys">network_connection</span>
+<span class="ykw">detection</span><span class="yk">:</span>
+  <span class="ykw">selection</span><span class="yk">:</span>
+    <span class="ykw">DestinationIp</span><span class="yk">:</span>
+      <span class="yk">-</span> <span class="ys">'203.0.113.42'</span>
+      <span class="yk">-</span> <span class="ys">'198.51.100.7'</span>
+  <span class="ykw">condition</span><span class="yk">:</span> <span class="ys">selection</span>
+<span class="ykw">level</span><span class="yk">:</span> <span class="yn">medium</span></pre>
+        </article>
+      </div>
+
+      <!-- ==================== 调研轨迹 ==================== -->
+      <div class="panel" data-panel="trace">
+        <ul class="trace">
+          <li class="trace-item" open>
+            <span class="trace-item__dot"><span class="ti-status-dot ti-status-dot--completed"></span></span>
+            <details open>
+              <summary class="trace-item__head">
+                <span class="trace-item__chev">▶</span>
+                <span class="trace-item__label">意图识别</span>
+                <span class="trace-item__source">intent</span>
+                <span class="trace-item__meta">14:24:24 · 0.4s · 234 tokens</span>
+              </summary>
+              <div class="trace-item__body">
+<pre>input  : "CVE-2024-3094 — 请评估生产环境中 OpenSSH 的暴露面与缓解措施"
+match  : ^CVE-\d{4}-\d{4,7}   (regex)
+intent : cve_research          (confidence 0.99)
+plan   : [nvd, kev, epss, attack, exploitdb, github]</pre>
+              </div>
+            </details>
+          </li>
+
+          <li class="trace-item">
+            <span class="trace-item__dot"><span class="ti-status-dot ti-status-dot--completed"></span></span>
+            <details>
+              <summary class="trace-item__head">
+                <span class="trace-item__chev">▶</span>
+                <span class="trace-item__label">NVD 调用</span>
+                <span class="trace-item__source">data</span>
+                <span class="trace-item__meta">14:24:25 · 1.2s · 命中</span>
+              </summary>
+              <div class="trace-item__body">
+<pre>GET /rest/json/cves/2.0?cveId=CVE-2024-3094  → 200
+fields: cvssMetricV31, weaknesses, configurations
+score : 10.0 / Critical
+cwe   : CWE-506</pre>
+              </div>
+            </details>
+          </li>
+
+          <li class="trace-item">
+            <span class="trace-item__dot"><span class="ti-status-dot ti-status-dot--completed"></span></span>
+            <details>
+              <summary class="trace-item__head">
+                <span class="trace-item__chev">▶</span>
+                <span class="trace-item__label">KEV 调用</span>
+                <span class="trace-item__source">data</span>
+                <span class="trace-item__meta">14:24:26 · 0.6s · 已收录</span>
+              </summary>
+              <div class="trace-item__body">
+<pre>GET cisa.gov/known_exploited_vulnerabilities.json
+hit  : true
+date : 2024-03-29
+notes: Apply mitigations per vendor instructions...</pre>
+              </div>
+            </details>
+          </li>
+
+          <li class="trace-item">
+            <span class="trace-item__dot"><span class="ti-status-dot ti-status-dot--failed"></span></span>
+            <details>
+              <summary class="trace-item__head">
+                <span class="trace-item__chev">▶</span>
+                <span class="trace-item__label">ExploitDB</span>
+                <span class="trace-item__source">data</span>
+                <span class="trace-item__meta">14:24:27 · 1.1s · 未命中</span>
+              </summary>
+              <div class="trace-item__body">
+<pre>GET exploit-db.com/?cve=2024-3094  → 200 (empty)
+result : 0 entries
+note   : 无公开 EDB 条目,可能由于该漏洞披露后 PoC 主要在 GitHub</pre>
+              </div>
+            </details>
+          </li>
+
+          <li class="trace-item">
+            <span class="trace-item__dot"><span class="ti-status-dot ti-status-dot--completed"></span></span>
+            <details>
+              <summary class="trace-item__head">
+                <span class="trace-item__chev">▶</span>
+                <span class="trace-item__label">Research-1 (ATT&amp;CK 映射)</span>
+                <span class="trace-item__source">research</span>
+                <span class="trace-item__meta">14:24:28 - 14:25:14 · 46s · 1,847 tokens</span>
+              </summary>
+              <div class="trace-item__body">
+<pre>step 1: query MITRE ATT&CK enterprise corpus
+step 2: rank candidate techniques by CWE-506 + supply-chain pattern
+step 3: cross-validate with CVE description
+output: T1195.002 (primary), T1078, T1574, T1027 (secondary)</pre>
+              </div>
+            </details>
+          </li>
+
+          <li class="trace-item">
+            <span class="trace-item__dot"><span class="ti-status-dot ti-status-dot--completed"></span></span>
+            <details>
+              <summary class="trace-item__head">
+                <span class="trace-item__chev">▶</span>
+                <span class="trace-item__label">IOC 提取</span>
+                <span class="trace-item__source">extract</span>
+                <span class="trace-item__meta">14:25:18 · 3.1s · 14 条</span>
+              </summary>
+              <div class="trace-item__body">
+<pre>scanned : 7 sources, 21 candidate strings
+extracted: 3 ipv4, 4 domain, 5 hash, 2 url
+deduped: 14
+defang : applied to ipv4/domain/url</pre>
+              </div>
+            </details>
+          </li>
+
+          <li class="trace-item">
+            <span class="trace-item__dot"><span class="ti-status-dot ti-status-dot--completed"></span></span>
+            <details>
+              <summary class="trace-item__head">
+                <span class="trace-item__chev">▶</span>
+                <span class="trace-item__label">Critic 审查</span>
+                <span class="trace-item__source">critic</span>
+                <span class="trace-item__meta">14:25:36 · 8.4s · 3 处建议</span>
+              </summary>
+              <div class="trace-item__body">
+<pre>flagged: 3 low-confidence IOCs (IPv4 192.0.2.18, 2 hashes)
+fix    : marked confidence "low",  added context disclaimers
+overall: confidence 92%</pre>
+              </div>
+            </details>
+          </li>
+
+          <li class="trace-item">
+            <span class="trace-item__dot"><span class="ti-status-dot ti-status-dot--completed"></span></span>
+            <details>
+              <summary class="trace-item__head">
+                <span class="trace-item__chev">▶</span>
+                <span class="trace-item__label">Synthesis</span>
+                <span class="trace-item__source">synth</span>
+                <span class="trace-item__meta">14:25:48 - 14:26:11 · 23s · 流式</span>
+              </summary>
+              <div class="trace-item__body">
+<pre>mode    : streaming markdown
+sections: 5 (概要 / 数据源 / ATT&CK / IOC / 缓解)
+length  : 1,847 chars
+done    : 2026-05-09 14:26:11</pre>
+              </div>
+            </details>
+          </li>
+        </ul>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ============================================================
+       底部操作区
+       ============================================================ -->
+  <footer class="report-footer">
+    <div class="report-footer__inner">
+      <div class="report-footer__left">
+        <button class="ti-btn ti-btn--secondary ti-btn--sm">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M2 6a4 4 0 0 1 7-2.7M10 6a4 4 0 0 1-7 2.7" stroke-linecap="round"/>
+            <path d="M9 1v2.7H6.3M3 11V8.3h2.7" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          刷新增量
+        </button>
+        <span class="ti-text-muted" style="font-size: var(--text-xs); margin-left: var(--space-2);">
+          上次刷新 2 分钟前 · 数据源 NVD/KEV/EPSS 更新频率每 4 小时
+        </span>
+      </div>
+      <div class="report-footer__right">
+        <div class="ti-btn-group" role="group" aria-label="导出">
+          <button class="ti-btn">MD</button>
+          <button class="ti-btn">PDF</button>
+          <button class="ti-btn">STIX</button>
+          <button class="ti-btn">Sigma</button>
+          <button class="ti-btn">IOC CSV</button>
+          <button class="ti-btn">打包 .zip</button>
+        </div>
+        <button class="ti-btn ti-btn--danger ti-btn--sm" id="open-delete">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M2.5 3.5h7M5 5.5v3M7 5.5v3M3.5 3.5l.5 6h4l.5-6M4.5 3.5V2h3v1.5" stroke-linejoin="round"/>
+          </svg>
+          删除
+        </button>
+      </div>
+    </div>
+  </footer>
+</div>
+
+<!-- ============================================================
+     删除二次确认 Modal
+     ============================================================ -->
+<div class="ti-modal-backdrop" id="delete-modal">
+  <div class="ti-modal" role="dialog" aria-modal="true" aria-labelledby="del-title">
+    <div class="ti-modal__header">
+      <h2 class="ti-modal__title" id="del-title">删除报告 RPT-3084?</h2>
+      <button class="ti-btn ti-btn--ghost ti-btn--sm" id="close-delete" aria-label="关闭">✕</button>
+    </div>
+    <div class="ti-modal__body">
+      此操作将永久删除 <span class="ti-mono">CVE-2024-3094</span> 的完整调研结果,包括:
+      <ul style="margin: var(--space-3) 0; padding-left: 1.5em; color: var(--text-primary);">
+        <li>14 条 IOC 与 defang 元数据</li>
+        <li>3 条 Sigma 规则草案</li>
+        <li>完整调研轨迹与 Agent 日志</li>
+      </ul>
+      操作不可撤销。请输入 <code style="font-family: var(--font-mono); background: var(--bg-subtle); padding: 1px 5px; border-radius: 3px;">RPT-3084</code> 以确认。
+      <input class="ti-input" placeholder="RPT-3084" style="margin-top: var(--space-3);" />
+    </div>
+    <div class="ti-modal__footer">
+      <button class="ti-btn ti-btn--secondary" id="cancel-delete">取消</button>
+      <button class="ti-btn ti-btn--danger" disabled>永久删除</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // 仅页面级 UI:tab 切换 / 主题 / 删除 modal。业务逻辑由你自行接入。
+  document.getElementById('theme-toggle').addEventListener('click', () => {
+    const html = document.documentElement;
+    html.dataset.theme = html.dataset.theme === 'dark' ? 'light' : 'dark';
+  });
+
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(t => t.removeAttribute('data-active'));
+      document.querySelectorAll('.panel').forEach(p => p.removeAttribute('data-active'));
+      tab.setAttribute('data-active', '');
+      const target = tab.getAttribute('data-target');
+      document.querySelector('[data-panel="' + target + '"]').setAttribute('data-active', '');
+      document.querySelector('.tabpanels').scrollTop = 0;
+    });
+  });
+
+  const modal = document.getElementById('delete-modal');
+  document.getElementById('open-delete').addEventListener('click', () => modal.setAttribute('data-open',''));
+  document.getElementById('close-delete').addEventListener('click', () => modal.removeAttribute('data-open'));
+  document.getElementById('cancel-delete').addEventListener('click', () => modal.removeAttribute('data-open'));
+  modal.addEventListener('click', (e) => { if (e.target === modal) modal.removeAttribute('data-open'); });
+</script>
+</body>
+</html>

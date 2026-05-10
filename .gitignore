@@ -14,3 +14,4 @@ htmlcov/
 dist/
 build/
 .mypy_cache/
+*.bak

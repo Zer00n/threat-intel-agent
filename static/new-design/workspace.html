@@ -1,0 +1,543 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>工作区 — Threat Intel Agent</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="components.css">
+<link rel="stylesheet" href="workspace.css">
+</head>
+<body>
+
+<!-- ============================================================
+     顶部 Header (48px)
+     ============================================================ -->
+<header class="app-header" data-screen-label="Workspace · Header">
+  <div class="app-header__left">
+    <div class="app-header__brand">
+      <span class="app-header__logo" aria-hidden="true">TI</span>
+      <span>威胁情报调研助手</span>
+    </div>
+  </div>
+
+  <div class="app-header__center">
+    <nav class="app-header__breadcrumb" aria-label="breadcrumb">
+      <a href="#">工作区</a>
+      <span class="sep">›</span>
+      <span class="app-header__taskid">TI-2476</span>
+      <span class="ti-badge ti-badge--info" style="margin-left: 4px;">运行中</span>
+    </nav>
+  </div>
+
+  <div class="app-header__right">
+    <!-- Token 用量 widget -->
+    <div class="usage-widget" title="本次任务消耗 / 当月余额">
+      <span class="usage-widget__label">本次</span>
+      <span class="usage-widget__num">12,453</span>
+      <span class="usage-widget__bar"><i style="width: 28%"></i></span>
+      <span class="usage-widget__label">月余额</span>
+      <span class="usage-widget__num">847k / 1.2M</span>
+    </div>
+
+    <button class="app-header__icon-btn" id="theme-toggle" aria-label="切换主题">
+      <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M11.5 8a3.5 3.5 0 1 1-3.5-3.5"/>
+        <path d="M11.5 4.5L11.5 8 14 8" stroke-linecap="round"/>
+      </svg>
+    </button>
+    <button class="app-header__icon-btn" aria-label="设置">
+      <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5">
+        <circle cx="8" cy="8" r="2"/>
+        <path d="M8 1v2M8 13v2M1 8h2M13 8h2M3 3l1.4 1.4M11.6 11.6L13 13M3 13l1.4-1.4M11.6 4.4L13 3"/>
+      </svg>
+    </button>
+  </div>
+</header>
+
+<!-- ============================================================
+     App Shell (sidebar + main)
+     ============================================================ -->
+<div class="app-shell">
+
+  <!-- ─────────────── 左侧栏 ─────────────── -->
+  <aside class="sidebar" data-screen-label="Workspace · Sidebar">
+
+    <!-- 上半:历史 -->
+    <section class="sidebar__pane sidebar__pane--history">
+      <div class="sidebar__head">
+        <h3>历史调研</h3>
+        <span class="count">142</span>
+      </div>
+      <div class="history-controls">
+        <div class="ti-input-wrap">
+          <svg class="ti-input__icon" viewBox="0 0 16 16" fill="none">
+            <circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.5"/>
+            <path d="M11 11l3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+          <input class="ti-input ti-input--with-icon ti-btn--sm" placeholder="搜索 CVE / IOC / APT…" style="height: 28px;" />
+        </div>
+        <div class="filter-row">
+          <span class="filter-chip" data-active>全部</span>
+          <span class="filter-chip">CVE</span>
+          <span class="filter-chip">ATT&amp;CK</span>
+          <span class="filter-chip">APT</span>
+          <span class="filter-chip">IOC</span>
+        </div>
+        <div class="filter-row">
+          <span class="filter-chip">
+            <span class="ti-status-dot ti-status-dot--running" style="width:6px;height:6px"></span>
+            运行
+          </span>
+          <span class="filter-chip">
+            <span class="ti-status-dot ti-status-dot--completed" style="width:6px;height:6px"></span>
+            完成
+          </span>
+          <span class="filter-chip">
+            <span class="ti-status-dot ti-status-dot--failed" style="width:6px;height:6px"></span>
+            失败
+          </span>
+        </div>
+      </div>
+
+      <div class="history-list">
+        <a class="history-item" data-active>
+          <div class="history-item__top">
+            <span class="ti-status-dot ti-status-dot--running"></span>
+            <span class="history-item__title">CVE-2024-3094</span>
+          </div>
+          <div class="history-item__bottom">
+            <span class="history-item__intent">CVE</span>
+            <span>2 分钟前</span>
+            <span class="ti-badge ti-badge--tlp-amber" style="margin-left:auto; height: 16px; font-size: 9px;">AMBER</span>
+          </div>
+        </a>
+        <a class="history-item">
+          <div class="history-item__top">
+            <span class="ti-status-dot ti-status-dot--completed"></span>
+            <span class="history-item__title">APT29 — 近 30 天活动</span>
+          </div>
+          <div class="history-item__bottom">
+            <span class="history-item__intent">APT</span>
+            <span>今天 09:42</span>
+          </div>
+        </a>
+        <a class="history-item">
+          <div class="history-item__top">
+            <span class="ti-status-dot ti-status-dot--completed"></span>
+            <span class="history-item__title">T1059.001 — PowerShell</span>
+          </div>
+          <div class="history-item__bottom">
+            <span class="history-item__intent">ATT&amp;CK</span>
+            <span>今天 08:11</span>
+          </div>
+        </a>
+        <a class="history-item">
+          <div class="history-item__top">
+            <span class="ti-status-dot ti-status-dot--completed"></span>
+            <span class="history-item__title">203.0.113.42</span>
+          </div>
+          <div class="history-item__bottom">
+            <span class="history-item__intent">IOC</span>
+            <span>昨天 17:23</span>
+          </div>
+        </a>
+        <a class="history-item">
+          <div class="history-item__top">
+            <span class="ti-status-dot ti-status-dot--failed"></span>
+            <span class="history-item__title">CVE-2025-31200</span>
+          </div>
+          <div class="history-item__bottom">
+            <span class="history-item__intent">CVE</span>
+            <span>昨天 14:08</span>
+          </div>
+        </a>
+        <a class="history-item">
+          <div class="history-item__top">
+            <span class="ti-status-dot ti-status-dot--completed"></span>
+            <span class="history-item__title">Lazarus Group — 财务行业</span>
+          </div>
+          <div class="history-item__bottom">
+            <span class="history-item__intent">APT</span>
+            <span>昨天 11:47</span>
+          </div>
+        </a>
+        <a class="history-item">
+          <div class="history-item__top">
+            <span class="ti-status-dot ti-status-dot--interrupted"></span>
+            <span class="history-item__title">CVE-2024-21762</span>
+          </div>
+          <div class="history-item__bottom">
+            <span class="history-item__intent">CVE</span>
+            <span>5月7日</span>
+          </div>
+        </a>
+        <a class="history-item">
+          <div class="history-item__top">
+            <span class="ti-status-dot ti-status-dot--completed"></span>
+            <span class="history-item__title">malware-delivery[.]example</span>
+          </div>
+          <div class="history-item__bottom">
+            <span class="history-item__intent">IOC</span>
+            <span>5月6日</span>
+          </div>
+        </a>
+        <a class="history-item">
+          <div class="history-item__top">
+            <span class="ti-status-dot ti-status-dot--completed"></span>
+            <span class="history-item__title">T1566.001 — Spearphishing</span>
+          </div>
+          <div class="history-item__bottom">
+            <span class="history-item__intent">ATT&amp;CK</span>
+            <span>5月5日</span>
+          </div>
+        </a>
+      </div>
+    </section>
+
+    <!-- 下半:Agent 时间线 -->
+    <section class="sidebar__pane sidebar__pane--timeline">
+      <div class="sidebar__head">
+        <h3>Agent 时间线</h3>
+        <span class="count">9 / 11</span>
+      </div>
+
+      <div class="timeline">
+        <div class="timeline__task">
+          <span class="id">TI-2476</span>
+          <span class="elapsed">已用 1m 47s</span>
+        </div>
+
+        <ul class="timeline__list">
+          <li class="timeline-item">
+            <span class="timeline-item__dot"><span class="ti-status-dot ti-status-dot--completed"></span></span>
+            <div class="timeline-item__head">
+              <span class="timeline-item__label">意图识别</span>
+              <span class="timeline-item__source">intent</span>
+            </div>
+            <span class="timeline-item__meta">CVE · 0.4s</span>
+          </li>
+          <li class="timeline-item">
+            <span class="timeline-item__dot"><span class="ti-status-dot ti-status-dot--completed"></span></span>
+            <div class="timeline-item__head">
+              <span class="timeline-item__label">规划</span>
+              <span class="timeline-item__source">planner</span>
+            </div>
+            <span class="timeline-item__meta">5 步 · 0.9s</span>
+          </li>
+          <li class="timeline-item">
+            <span class="timeline-item__dot"><span class="ti-status-dot ti-status-dot--completed"></span></span>
+            <div class="timeline-item__head">
+              <span class="timeline-item__label">NVD</span>
+              <span class="timeline-item__source">data</span>
+            </div>
+            <span class="timeline-item__meta">命中 · 1.2s</span>
+          </li>
+          <li class="timeline-item">
+            <span class="timeline-item__dot"><span class="ti-status-dot ti-status-dot--completed"></span></span>
+            <div class="timeline-item__head">
+              <span class="timeline-item__label">KEV</span>
+              <span class="timeline-item__source">data</span>
+            </div>
+            <span class="timeline-item__meta">命中 · 0.6s</span>
+          </li>
+          <li class="timeline-item">
+            <span class="timeline-item__dot"><span class="ti-status-dot ti-status-dot--completed"></span></span>
+            <div class="timeline-item__head">
+              <span class="timeline-item__label">EPSS</span>
+              <span class="timeline-item__source">data</span>
+            </div>
+            <span class="timeline-item__meta">0.94 · 0.4s</span>
+          </li>
+          <li class="timeline-item">
+            <span class="timeline-item__dot"><span class="ti-status-dot ti-status-dot--failed"></span></span>
+            <div class="timeline-item__head">
+              <span class="timeline-item__label">ExploitDB</span>
+              <span class="timeline-item__source">data</span>
+            </div>
+            <span class="timeline-item__meta">未命中 · 1.1s</span>
+          </li>
+          <li class="timeline-item timeline-item--current">
+            <span class="timeline-item__dot"><span class="ti-status-dot ti-status-dot--running"></span></span>
+            <div class="timeline-item__head">
+              <span class="timeline-item__label">Research-1</span>
+              <span class="timeline-item__source">research</span>
+            </div>
+            <span class="timeline-item__meta">检索 ATT&amp;CK 映射…</span>
+          </li>
+          <li class="timeline-item timeline-item--current">
+            <span class="timeline-item__dot"><span class="ti-status-dot ti-status-dot--running"></span></span>
+            <div class="timeline-item__head">
+              <span class="timeline-item__label">Research-2</span>
+              <span class="timeline-item__source">research</span>
+            </div>
+            <span class="timeline-item__meta">爬取 GitHub PoC…</span>
+          </li>
+          <li class="timeline-item">
+            <span class="timeline-item__dot"><span class="ti-status-dot ti-status-dot--waiting"></span></span>
+            <div class="timeline-item__head">
+              <span class="timeline-item__label">IOC 提取</span>
+              <span class="timeline-item__source">extract</span>
+            </div>
+          </li>
+          <li class="timeline-item">
+            <span class="timeline-item__dot"><span class="ti-status-dot ti-status-dot--waiting"></span></span>
+            <div class="timeline-item__head">
+              <span class="timeline-item__label">Critic 审查</span>
+              <span class="timeline-item__source">critic</span>
+            </div>
+          </li>
+          <li class="timeline-item">
+            <span class="timeline-item__dot"><span class="ti-status-dot ti-status-dot--waiting"></span></span>
+            <div class="timeline-item__head">
+              <span class="timeline-item__label">Synthesis</span>
+              <span class="timeline-item__source">synth</span>
+            </div>
+          </li>
+        </ul>
+      </div>
+    </section>
+  </aside>
+
+  <!-- ─────────────── 主内容区 ─────────────── -->
+  <main class="main" data-screen-label="Workspace · Main">
+
+    <!-- 顶部输入区 -->
+    <section class="compose">
+      <div class="compose__inner">
+        <div class="compose__field">
+          <textarea class="compose__textarea" rows="2"
+            placeholder="输入 CVE 编号、ATT&CK 技术编号、APT 组织名或 IOC…">CVE-2024-3094 — 请评估生产环境中 OpenSSH 的暴露面与缓解措施</textarea>
+          <div class="compose__bar">
+            <div class="compose__bar-left">
+              <button class="tlp-select" type="button" aria-label="选择 TLP 标记">
+                <span class="ti-badge ti-badge--tlp-amber" style="height: 16px; font-size: 9px;">AMBER</span>
+                <span class="tlp-select__chevron">▾</span>
+              </button>
+              <span class="ti-text-muted" style="font-size: var(--text-xs);">⌘ + Enter 提交</span>
+            </div>
+            <div class="compose__bar-right">
+              <button class="ti-btn ti-btn--ghost ti-btn--sm" type="button">附加上下文</button>
+              <button class="ti-btn ti-btn--danger ti-btn--sm" type="button">
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor"><rect width="10" height="10" rx="1.5"/></svg>
+                停止
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 意图识别预览条 -->
+      <div class="intent-banner">
+        <div class="intent-banner__lead">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+            <circle cx="8" cy="8" r="6"/>
+            <path d="M8 5v3.5l2 1.5" stroke-linecap="round"/>
+          </svg>
+          <span>已识别为</span>
+          <span class="intent-banner__intent">CVE 调研</span>
+        </div>
+        <span class="intent-banner__sep"></span>
+        <div class="intent-banner__sources">
+          <span class="ti-text-secondary" style="font-size: var(--text-xs);">将调用</span>
+          <span class="source-pill">NVD</span>
+          <span class="source-pill">KEV</span>
+          <span class="source-pill">EPSS</span>
+          <span class="source-pill">ATT&amp;CK</span>
+          <span class="source-pill">ExploitDB</span>
+          <span class="source-pill">GitHub</span>
+        </div>
+        <div class="intent-banner__countdown">
+          <span>自动执行 <span class="intent-banner__count-num">0:03</span></span>
+          <button class="ti-btn ti-btn--secondary ti-btn--sm" type="button">切换路径</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 报告渲染区 -->
+    <section class="report-scroll">
+      <div class="report-inner">
+
+        <!-- 报告顶部工具条:导出按钮组 + 元信息 -->
+        <div class="report-toolbar">
+          <div class="report-toolbar__meta">
+            <span>报告 ID</span>
+            <span class="ti-mono">RPT-3084</span>
+            <span>·</span>
+            <span>正在流式生成 · 已写入 1,847 字</span>
+          </div>
+          <div class="ti-btn-group" role="group" aria-label="导出">
+            <button class="ti-btn">MD</button>
+            <button class="ti-btn">PDF</button>
+            <button class="ti-btn">STIX</button>
+            <button class="ti-btn">Sigma</button>
+            <button class="ti-btn">IOC CSV</button>
+            <button class="ti-btn">打包 .zip</button>
+          </div>
+        </div>
+
+        <!-- 思考过程折叠 -->
+        <details class="thinking">
+          <summary class="thinking__head">
+            <span class="thinking__chevron">▶</span>
+            <span class="thinking__label">思考过程</span>
+            <span class="ti-text-muted" style="font-size: var(--text-xs);">14 步</span>
+            <span class="thinking__count">折叠</span>
+          </summary>
+          <div class="thinking__body">
+            <p>意图识别命中 CVE 模式 (regex: <code>^CVE-\d{4}-\d{4,7}</code>),置信度 0.99。</p>
+            <p>规划:首先从 NVD 拉取漏洞元数据 → 检查 KEV 收录 → 查询 EPSS 评分 → 映射 ATT&amp;CK → 检索 PoC → 提取 IOC。</p>
+            <p>NVD 返回 CVSS 3.1 = 10.0 / 严重。受影响包:liblzma 5.6.0、5.6.1。</p>
+            <p>KEV 已收录(2024-03-29 加入)。EPSS 0.94,处于 P99。</p>
+            <p>ATT&amp;CK 映射候选:T1195.002 供应链妥协 / T1078 有效账户。需进一步验证。</p>
+            <p>分派 Research-1 检索 MITRE 技术细节;Research-2 抓取 GitHub 公开 PoC。</p>
+          </div>
+        </details>
+
+        <!-- Markdown 渲染区 -->
+        <article class="md">
+          <h1>CVE-2024-3094 · XZ Utils 后门</h1>
+
+          <p>
+            <span class="ti-badge ti-badge--error">CVSS 10.0 · 严重</span>
+            <span class="ti-badge ti-badge--confidence-high">置信度 92%</span>
+            <span class="ti-badge ti-badge--tlp-amber">TLP:AMBER</span>
+            <span class="ti-tag">CWE-506</span>
+            <span class="ti-tag ti-tag--accent">T1195.002</span>
+          </p>
+
+          <blockquote>
+            CVE-2024-3094 是位于 <code>liblzma</code>(由 <code>xz-utils</code> 提供)中的供应链植入,
+            可在特定构建配置下通过 OpenSSH(systemd-notify 链路)实现远程未授权代码执行。
+            受影响版本:<code>5.6.0</code>、<code>5.6.1</code>;主流稳定版发行已发布回滚补丁。
+          </blockquote>
+
+          <h2>1. 概要</h2>
+          <p>
+            该后门由 <strong>Jia Tan</strong> 在 <code>xz-utils</code> 项目长期合规贡献后悄然植入。
+            仅在 <code>x86_64</code> 上、<code>glibc</code> 系发行版构建中触发,绕过条件依赖
+            <code>RPM_ARCH</code> 与 <code>DEB_HOST_GNU_TYPE</code> 等环境变量。
+          </p>
+          <ul>
+            <li>影响入口:OpenSSH 通过 <code>libsystemd</code> 间接链接 <code>liblzma</code>。</li>
+            <li>触发路径:RSA 公钥校验阶段被劫持,<code>RSA_public_decrypt</code> 被替换。</li>
+            <li>检测难度:载荷以混淆形式藏于二进制测试文件中,源码仓库无显式可疑代码。</li>
+          </ul>
+
+          <h2>2. 受影响目标 / 数据源覆盖</h2>
+          <table>
+            <thead>
+              <tr><th>数据源</th><th>状态</th><th>关键字段</th><th>响应</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><span class="ti-tag">NVD</span></td>
+                <td><span class="ti-badge ti-badge--success">命中</span></td>
+                <td>cvssMetricV31</td>
+                <td>10.0 / Critical</td>
+              </tr>
+              <tr>
+                <td><span class="ti-tag">CISA KEV</span></td>
+                <td><span class="ti-badge ti-badge--success">已收录</span></td>
+                <td>dateAdded</td>
+                <td>2024-03-29</td>
+              </tr>
+              <tr>
+                <td><span class="ti-tag">EPSS</span></td>
+                <td><span class="ti-badge ti-badge--warning">P99</span></td>
+                <td>score / percentile</td>
+                <td>0.94 / 0.997</td>
+              </tr>
+              <tr>
+                <td><span class="ti-tag">ExploitDB</span></td>
+                <td><span class="ti-badge">未命中</span></td>
+                <td>—</td>
+                <td><span class="ti-text-muted">无公开 EDB 条目</span></td>
+              </tr>
+              <tr>
+                <td><span class="ti-tag">GitHub</span></td>
+                <td><span class="ti-badge ti-badge--info">检索中</span></td>
+                <td>topic:xz-backdoor</td>
+                <td>已发现 17 仓库 · 复核置信</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <h2>3. ATT&amp;CK 映射</h2>
+          <p>
+            该事件主要落在
+            <span class="ti-tooltip" data-tooltip="供应链妥协 → 软件依赖与开发工具妥协">
+              <span class="ti-tag ti-tag--accent">T1195.002</span>
+            </span>
+            与
+            <span class="ti-tooltip" data-tooltip="有效账户:经由可信凭证完成持久化">
+              <span class="ti-tag ti-tag--accent">T1078</span>
+            </span>
+            。在防御侧,触达
+            <span class="ti-tag ti-tag--accent">M1051</span> 与
+            <span class="ti-tag ti-tag--accent">DS0022</span>。
+          </p>
+
+          <h2>4. 已知 IOC</h2>
+          <p>以下条目由 IOC Agent 自动提取,可在「IOC 列表」标签查看完整集合并切换 defang。</p>
+          <ul>
+            <li>
+              <span class="ti-chip ti-chip--hash">
+                <span class="ti-chip__icon">#</span>
+                <span class="ti-chip__value">a3f5e9c7…b21c · liblzma 5.6.0</span>
+              </span>
+              出现于受影响构建产物。
+            </li>
+            <li>
+              <span class="ti-chip ti-chip--hash">
+                <span class="ti-chip__icon">#</span>
+                <span class="ti-chip__value">68dca6d9…44a1 · liblzma 5.6.1</span>
+              </span>
+              。
+            </li>
+            <li>
+              <span class="ti-chip ti-chip--ipv4">
+                <span class="ti-chip__icon">IP</span>
+                <span class="ti-chip__value">203.0.113.42</span>
+              </span>
+              开发者 SSH 跳板,见社区分析。
+            </li>
+            <li>
+              <span class="ti-chip ti-chip--domain">
+                <span class="ti-chip__icon">DN</span>
+                <span class="ti-chip__value">jiat75[.]example</span>
+              </span>
+              ,与提交活动相关联。
+            </li>
+          </ul>
+
+          <h2>5. 缓解 / 处置建议</h2>
+          <ol>
+            <li>立即在生产 / CI 环境识别 <code>xz-utils 5.6.0 / 5.6.1</code> 装机情况;回滚到 <code>5.4.x</code>。</li>
+            <li>对所有面向公网的 OpenSSH 实例核对 <code>liblzma</code> 来源签名。</li>
+            <li>启用 <a href="#">推荐 Sigma 规则</a>(将在「Sigma 规则」标签生成)。</li>
+            <li>清单:</li>
+          </ol>
+          <pre><code>$ ldd $(which sshd) | grep liblzma
+$ rpm -qf /usr/lib64/liblzma.so.5
+$ apt list --installed 2&gt;/dev/null | grep -i xz
+$ # 检查后门标志位<span class="typing-cursor"></span></code></pre>
+
+        </article>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+  // 仅页面级 UI:主题切换 + 倒计时演示。业务逻辑由你的代码接入。
+  document.getElementById('theme-toggle').addEventListener('click', () => {
+    const html = document.documentElement;
+    html.dataset.theme = html.dataset.theme === 'dark' ? 'light' : 'dark';
+  });
+</script>
+</body>
+</html>

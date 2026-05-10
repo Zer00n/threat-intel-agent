@@ -4,7 +4,7 @@ build-backend = "setuptools.backends._legacy:_Backend"
 
 [project]
 name = "threat-intel-agent"
-version = "0.5.0"
+version = "0.6.0"
 description = "Enterprise SOC Threat Intelligence Deep Research Agent"
 readme = "README.md"
 license = {text = "MIT"}

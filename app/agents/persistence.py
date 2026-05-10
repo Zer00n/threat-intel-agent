@@ -17,6 +17,7 @@ from app.db.models import (
     Finding,
     IOC,
     SourceUsed,
+    TokenUsageMonthly,
 )
 from app.utils.time import now_iso
 from app.utils.attck_loader import get_technique, validate_technique_id
@@ -59,6 +60,25 @@ async def persist_analysis_results(
             updated_at=now,
         )
     )
+
+    # 1.5. Update monthly token usage in real-time
+    current_month = now[:7]  # "2026-05"
+    existing_monthly = await db.get(TokenUsageMonthly, current_month)
+    if existing_monthly:
+        existing_monthly.total_input += token_input
+        existing_monthly.total_output += token_output
+        existing_monthly.total_cost_usd += cost_usd
+        existing_monthly.analysis_count += 1
+        existing_monthly.updated_at = now
+    else:
+        db.add(TokenUsageMonthly(
+            year_month=current_month,
+            total_input=token_input,
+            total_output=token_output,
+            total_cost_usd=cost_usd,
+            analysis_count=1,
+            updated_at=now,
+        ))
 
     # 2. Persist findings
     for f in memory.findings:
