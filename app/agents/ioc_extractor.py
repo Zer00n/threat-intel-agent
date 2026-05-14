@@ -1,13 +1,33 @@
 from __future__ import annotations
 
 import uuid
+from pathlib import Path
 from typing import Any
+
+import structlog
 
 from app.agents.base import AgentResult, BaseAgent, EmitFn
 from app.agents.llm_client import LLMClient
 from app.agents.memory import IOC, Memory
 from app.utils.defang import defang
 from app.utils.ioc_regex import extract_all_iocs
+
+logger = structlog.get_logger()
+
+_PROMPT_FILE = Path(__file__).parent / "prompts" / "ioc_extractor.md"
+
+
+def _load_prompt() -> str:
+    if _PROMPT_FILE.exists():
+        return _PROMPT_FILE.read_text(encoding="utf-8")
+    logger.warning("ioc_extractor_prompt_file_missing", path=str(_PROMPT_FILE))
+    return (
+        "Extract IOCs (Indicators of Compromise) from the text. "
+        "Look for IP addresses, domains, URLs, file hashes (MD5/SHA1/SHA256), email addresses, file paths, "
+        "and semantic mentions like 'C2 server: ...', 'delivery domain: ...'. "
+        "Do NOT include example.com, localhost, RFC1918 addresses, version numbers, or placeholder values. "
+        "Call the extract_iocs tool with your result."
+    )
 
 LLM_IOC_TOOL = {
     "name": "extract_iocs",
@@ -33,13 +53,7 @@ LLM_IOC_TOOL = {
     },
 }
 
-_SYSTEM_PROMPT = """Extract IOCs (Indicators of Compromise) from the text.
-Look for:
-- IP addresses, domains, URLs
-- File hashes (MD5, SHA1, SHA256)
-- Email addresses, file paths
-- Semantic mentions like "C2 server: ...", "delivery domain: ..."
-Do NOT include example.com, localhost, RFC1918 addresses, or version numbers."""
+_SYSTEM_PROMPT = ""  # kept for backward-compat; actual prompt loaded from file
 
 
 class IOCExtractorAgent(BaseAgent):
@@ -48,6 +62,7 @@ class IOCExtractorAgent(BaseAgent):
     def __init__(self, llm: LLMClient | None = None, emit: EmitFn | None = None):
         super().__init__(emit)
         self._llm = llm
+        self._system_prompt = _load_prompt()
 
     async def run(self, memory: Memory, **kwargs: Any) -> AgentResult:
         await self.emit("ioc_extracting", {"content": "Extracting IOCs from findings..."})
@@ -100,7 +115,7 @@ class IOCExtractorAgent(BaseAgent):
 
     async def _llm_extract(self, text: str) -> list[dict]:
         resp = await self._llm.complete(
-            system=_SYSTEM_PROMPT,
+            system=self._system_prompt,
             messages=[{"role": "user", "content": f"Extract IOCs from:\n\n{text[:8000]}"}],
             tools=[LLM_IOC_TOOL],
             max_tokens=2048,

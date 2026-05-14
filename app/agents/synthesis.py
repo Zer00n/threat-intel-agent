@@ -35,6 +35,10 @@ class SynthesisAgent(BaseAgent):
         confidence = memory.critic_result.overall_assessment if memory.critic_result else "Medium"
         tlp = memory.extra.get("tlp", "GREEN")
 
+        # Inject a relevant ATT&CK technique hint list when memory has no pre-mapped techniques.
+        # This prevents the prompt constraint "use only the provided list" from blocking all mappings.
+        attck_hint = self._build_attck_hint(memory)
+
         # Build system prompt with dynamic values
         system = f"""{self._base_prompt}
 
@@ -44,7 +48,7 @@ class SynthesisAgent(BaseAgent):
 - TLP: {tlp}
 - Overall Confidence: {confidence}
 - Intent: {memory.intent.intent}
-
+{attck_hint}
 Use the TLP value above in the 元信息 section.
 """
 
@@ -67,7 +71,88 @@ Use the TLP value above in the 元信息 section.
         memory.report_md = full_text
         return AgentResult(data={"report_length": len(full_text)})
 
-    def _fallback_report(self, memory: Memory) -> str:
+    def _build_attck_hint(self, memory: Memory) -> str:
+        """
+        When memory already has pre-validated ATT&CK techniques (populated by enrichment
+        or persistence backfill), the context from to_synthesis_context() already includes
+        them — no extra hint needed.
+
+        When memory.attck_techniques is empty (common for CVE/IOC queries), inject a
+        compact hint list of commonly relevant techniques so the LLM can map them rather
+        than outputting "未映射" for everything.
+        """
+        if memory.attck_techniques:
+            # Already in context via to_synthesis_context(); no duplication needed
+            return ""
+
+        # Build a small relevant hint based on intent and CVE data
+        from app.utils.attck_loader import get_all_techniques
+        all_techs = get_all_techniques()
+        if not all_techs:
+            return ""
+
+        intent = memory.intent.intent
+
+        # Curated seed IDs by intent — covers the most common mapping scenarios
+        _SEED_BY_INTENT: dict[str, list[str]] = {
+            "cve": [
+                "T1190",   # Exploit Public-Facing Application
+                "T1203",   # Exploitation for Client Execution
+                "T1068",   # Exploitation for Privilege Escalation
+                "T1210",   # Exploitation of Remote Services
+                "T1059",   # Command and Scripting Interpreter
+                "T1059.001", "T1059.003",
+                "T1105",   # Ingress Tool Transfer
+                "T1071",   # Application Layer Protocol
+                "T1027",   # Obfuscated Files or Information
+                "T1562",   # Impair Defenses
+                "T1078",   # Valid Accounts
+                "T1133",   # External Remote Services
+            ],
+            "attack_technique": [],  # already in enrichment
+            "threat_actor": [
+                "T1566", "T1566.001", "T1566.002",
+                "T1190", "T1133",
+                "T1059", "T1059.001",
+                "T1055", "T1027",
+                "T1078", "T1021",
+                "T1041", "T1048",
+            ],
+            "malware": [
+                "T1059", "T1059.001", "T1059.003",
+                "T1055", "T1027",
+                "T1071", "T1071.001",
+                "T1547", "T1543",
+                "T1041", "T1048",
+                "T1082", "T1083",
+            ],
+        }
+
+        seed_ids = _SEED_BY_INTENT.get(intent, _SEED_BY_INTENT["cve"])
+        if not seed_ids:
+            return ""
+
+        lines = [
+            "",
+            "## Pre-validated ATT&CK Technique Reference (use these IDs for mapping)",
+        ]
+        for tid in seed_ids:
+            tech = all_techs.get(tid)
+            if not tech:
+                continue
+            name = tech.get("name", tid)
+            phases = tech.get("kill_chain_phases", [])
+            tactic = phases[0].get("phase_name", "") if phases else ""
+            lines.append(f"- {tid} | {name} | {tactic}")
+
+        if len(lines) <= 2:
+            return ""
+
+        lines.append(
+            "Note: You may also use other valid ATT&CK IDs from your knowledge "
+            "if they are clearly applicable — mark them as inferred."
+        )
+        return "\n".join(lines) + "\n"
         parts = ["# Threat Intelligence Report\n"]
         parts.append(f"**Query:** {memory.extra.get('query', 'N/A')}")
         parts.append(f"**Intent:** {memory.intent.intent}")

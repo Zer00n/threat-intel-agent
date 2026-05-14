@@ -70,8 +70,10 @@ The user may provide some or all of the following:
    - application logs
 
 4. Allowed MITRE ATT&CK technique list
-   - You may only use ATT&CK technique IDs from the provided list.
-   - If no exact technique is available, mark it as "未映射 / not mapped" instead of inventing an ID.
+   - When a pre-validated ATT&CK technique list is injected into the context under "## ATT&CK Techniques", use only those IDs.
+   - When no pre-validated list is provided, you MAY use your own ATT&CK knowledge to map relevant techniques — but you MUST mark each one as 【Likely】or 【Hypothesis】and note it was inferred, not pre-validated.
+   - Never invent technique IDs that do not exist in the MITRE ATT&CK framework.
+   - If you genuinely cannot identify any applicable technique, write "未映射 / not mapped".
 
 ---
 
@@ -314,7 +316,8 @@ PoC links must be placed inside collapsible HTML:
 
 ## 8. ATT&CK 映射
 
-Use only the provided ATT&CK technique list.
+Use the pre-validated ATT&CK technique list from the context when available.
+When no pre-validated list is provided, map techniques based on your ATT&CK knowledge and mark each as inferred.
 
 Table columns:
 - Technique ID
@@ -324,8 +327,8 @@ Table columns:
 - Evidence
 - Confidence
 
-If no exact match exists, write:
-- 未映射 / no exact technique from provided list
+If no applicable technique exists at all, write:
+- 未映射 / no applicable technique identified
 
 ## 9. IOC 清单
 

@@ -23,7 +23,7 @@ async def health_check(db: AsyncSession = Depends(get_db)):
     if not db_ok:
         return {"status": "degraded", "db": False}
 
-    return {"status": "ok", "db": True, "version": "0.6.0"}
+    return {"status": "ok", "db": True, "version": "0.7.0"}
 
 
 @router.get("/stats")
@@ -41,6 +41,19 @@ async def stats(db: AsyncSession = Depends(get_db)):
         select(TokenUsageMonthly).order_by(TokenUsageMonthly.year_month.desc()).limit(12)
     )).scalars().all()
 
+    # Read user-configured budget from DB, fall back to config defaults
+    from app.db.repositories.settings import get_setting
+    from app.config import settings as app_settings
+
+    db_budget_raw = await get_setting(db, "monthly_budget_usd")
+    if db_budget_raw is not None:
+        try:
+            monthly_budget_cny = float(db_budget_raw)
+        except (ValueError, TypeError):
+            monthly_budget_cny = app_settings.monthly_budget_cny
+    else:
+        monthly_budget_cny = app_settings.monthly_budget_cny
+
     return {
         "analyses": {
             "total": total,
@@ -48,6 +61,7 @@ async def stats(db: AsyncSession = Depends(get_db)):
             "running": running,
         },
         "total_cost_usd": round(float(cost), 6),
+        "monthly_budget_cny": monthly_budget_cny,
         "sources": [
             {
                 "source_name": row.source_name,

@@ -1,6 +1,7 @@
 """Sigma Rule Generator Agent - uses LLM to generate detection rules from findings."""
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 import structlog
@@ -11,20 +12,20 @@ from app.agents.memory import Memory
 
 logger = structlog.get_logger()
 
-_SYSTEM_PROMPT = """You are a Sigma rule generator for threat detection.
-Given threat intelligence findings, IOCs, and ATT&CK techniques, generate 1-3 Sigma detection rules.
+_PROMPT_FILE = Path(__file__).parent / "prompts" / "sigma_generator.md"
 
-Rules must:
-1. Follow the Sigma rule format (YAML)
-2. Include title, id (use uuid4), status (experimental), description, author, date, logsource, detection, falsepositives, level, tags
-3. The description MUST start with "AI-GENERATED DRAFT - REQUIRES HUMAN REVIEW."
-4. Tags must use attack.t#### format matching the ATT&CK technique IDs from the input
-5. Detection logic should be based on the actual IOCs and attack patterns described in findings
-6. Focus on the most actionable detection opportunities (process creation, network, file, registry)
-7. Return exactly the YAML rules, one per rule, separated by "---"
-8. Use Chinese for title and description if the findings are in Chinese
 
-Output ONLY the YAML rules, no explanation."""
+def _load_prompt() -> str:
+    if _PROMPT_FILE.exists():
+        return _PROMPT_FILE.read_text(encoding="utf-8")
+    # Fallback if file not found
+    logger.warning("sigma_generator_prompt_file_missing", path=str(_PROMPT_FILE))
+    return (
+        "You are a Sigma rule generator for threat detection. "
+        "Generate 1-3 Sigma detection rules in YAML format based on the provided findings, IOCs, and ATT&CK techniques. "
+        "The description MUST start with 'AI-GENERATED DRAFT - REQUIRES HUMAN REVIEW.' "
+        "Output ONLY the YAML rules separated by ---."
+    )
 
 SIGMA_TOOL = {
     "name": "submit_sigma_rules",
@@ -48,6 +49,7 @@ class SigmaGeneratorAgent(BaseAgent):
     def __init__(self, llm: LLMClient | None = None, emit: EmitFn | None = None):
         super().__init__(emit)
         self._llm = llm
+        self._system_prompt = _load_prompt()
 
     async def run(self, memory: Memory, **kwargs: Any) -> AgentResult:
         if not self._llm or not memory.findings:
@@ -60,7 +62,7 @@ class SigmaGeneratorAgent(BaseAgent):
 
         try:
             resp = await self._llm.complete(
-                system=_SYSTEM_PROMPT,
+                system=self._system_prompt,
                 messages=[{"role": "user", "content": context}],
                 tools=[SIGMA_TOOL],
                 max_tokens=4096,

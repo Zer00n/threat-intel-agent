@@ -112,18 +112,63 @@ def _cache_key(src_name: str, entity: str) -> str:
 
 
 def _get_primary_entity(intent: str, entities: dict[str, Any]) -> str | None:
-    if intent == "cve":
+    """Extract the primary entity string for enrichment source queries."""
+    # CVE-family intents
+    if intent in ("cve", "multi_cve", "product_vulnerability", "cwe", "cpe"):
+        ids = entities.get("cve_ids", [])
+        if ids:
+            return ids[0]
+        # Fall back to advisory IDs for non-CVE vulnerability queries
+        advisory = entities.get("advisory_ids", [])
+        if advisory:
+            return advisory[0]
+        # Fall back to first keyword
+        kw = entities.get("keywords", [])
+        return kw[0] if kw else None
+
+    if intent == "vulnerability_advisory":
+        advisory = entities.get("advisory_ids", [])
+        if advisory:
+            return advisory[0]
         ids = entities.get("cve_ids", [])
         return ids[0] if ids else None
-    if intent == "attack_technique":
+
+    if intent in ("attack_technique", "tool_or_ttp"):
         ids = entities.get("technique_ids", [])
-        return ids[0] if ids else None
-    if intent == "threat_actor":
+        if ids:
+            return ids[0]
+        tools = entities.get("tool_names", [])
+        return tools[0] if tools else None
+
+    if intent in ("threat_actor", "campaign"):
         names = entities.get("actor_names", [])
-        return names[0] if names else None
-    if intent == "malware":
+        if names:
+            return names[0]
+        campaigns = entities.get("campaign_names", [])
+        return campaigns[0] if campaigns else None
+
+    if intent in ("malware", "malware_artifact"):
         names = entities.get("malware_names", [])
         return names[0] if names else None
+
+    if intent in ("ioc_ip", "ioc_domain", "ioc_hash", "ioc_email", "ioc_filepath"):
+        iocs = entities.get("iocs", [])
+        if iocs:
+            return iocs[0].get("value") if isinstance(iocs[0], dict) else str(iocs[0])
+        # Legacy flat list
+        flat = entities.get("iocs", [])
+        return flat[0] if flat else None
+
+    # Legacy / generic fallback
+    if intent in ("vulnerability_generic", "incident_description", "incident_analysis",
+                  "threat_activity", "misconfiguration", "generic"):
+        ids = entities.get("cve_ids", [])
+        if ids:
+            return ids[0]
+        kw = entities.get("keywords", [])
+        return kw[0] if kw else None
+
+    # Last resort: any cve_ids present
     return entities.get("cve_ids", [None])[0] if entities.get("cve_ids") else None
 
 

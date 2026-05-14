@@ -1,11 +1,30 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
+
+import structlog
 
 from app.agents.base import AgentResult, BaseAgent, EmitFn
 from app.agents.llm_client import LLMClient
 from app.agents.memory import CriticResult, Memory
 from app.utils.attck_loader import validate_technique_id
+
+logger = structlog.get_logger()
+
+_PROMPT_FILE = Path(__file__).parent / "prompts" / "critic.md"
+
+
+def _load_prompt() -> str:
+    if _PROMPT_FILE.exists():
+        return _PROMPT_FILE.read_text(encoding="utf-8")
+    logger.warning("critic_prompt_file_missing", path=str(_PROMPT_FILE))
+    return (
+        "You are a quality assurance reviewer for threat intelligence reports. "
+        "Review findings for: missing sources, conflicting facts, invalid ATT&CK IDs, low confidence. "
+        "Provide an overall quality assessment: High, Medium, or Low. "
+        "Call the submit_review tool with your result."
+    )
 
 CRITIC_TOOL = {
     "name": "submit_review",
@@ -18,7 +37,21 @@ CRITIC_TOOL = {
                 "items": {
                     "type": "object",
                     "properties": {
-                        "type": {"type": "string", "enum": ["missing_source", "conflict", "invalid_attck", "low_confidence"]},
+                        "type": {
+                            "type": "string",
+                            "enum": [
+                                "missing_source",
+                                "conflict",
+                                "invalid_attck",
+                                "low_confidence",
+                                "overclaim",
+                                "fabricated_ioc",
+                                "invalid_cve_format",
+                                "missing_field",
+                                "prompt_injection",
+                                "victim_asset_leak",
+                            ],
+                        },
                         "finding_id": {"type": "string"},
                         "description": {"type": "string"},
                     },
@@ -30,7 +63,17 @@ CRITIC_TOOL = {
                 "items": {
                     "type": "object",
                     "properties": {
-                        "action": {"type": "string", "enum": ["drop", "downgrade_confidence", "flag_in_report"]},
+                        "action": {
+                            "type": "string",
+                            "enum": [
+                                "drop",
+                                "downgrade_confidence",
+                                "flag_in_report",
+                                "override_with_source",
+                                "trigger_research_iteration",
+                                "require_human_review",
+                            ],
+                        },
                         "target_id": {"type": "string"},
                         "reason": {"type": "string"},
                     },
@@ -43,14 +86,7 @@ CRITIC_TOOL = {
     },
 }
 
-_SYSTEM_PROMPT = """You are a quality assurance reviewer for threat intelligence reports.
-Review the findings for:
-1. Missing sources (findings without source_url)
-2. Conflicting facts (e.g., different CVSS scores across findings)
-3. Invalid ATT&CK technique IDs (must be real techniques)
-4. Low confidence findings that should be flagged
-
-Provide an overall quality assessment: High (well-sourced, consistent), Medium (mostly good), Low (significant gaps)."""
+_SYSTEM_PROMPT = ""  # kept for backward-compat; actual prompt loaded from file
 
 
 class CriticAgent(BaseAgent):
@@ -59,6 +95,7 @@ class CriticAgent(BaseAgent):
     def __init__(self, llm: LLMClient | None = None, emit: EmitFn | None = None):
         super().__init__(emit)
         self._llm = llm
+        self._system_prompt = _load_prompt()
 
     async def run(self, memory: Memory, **kwargs: Any) -> AgentResult:
         await self.emit("critic_review", {"content": "Reviewing findings quality..."})
@@ -135,7 +172,7 @@ class CriticAgent(BaseAgent):
                 context += f"\n- {cve.cve_id}: CVSS={cve.cvss_v3_score}, KEV={cve.is_in_kev}"
 
         resp = await self._llm.complete(
-            system=_SYSTEM_PROMPT,
+            system=self._system_prompt,
             messages=[{"role": "user", "content": context}],
             tools=[CRITIC_TOOL],
             max_tokens=2048,

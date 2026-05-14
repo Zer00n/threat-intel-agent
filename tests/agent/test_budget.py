@@ -12,7 +12,14 @@ class TestBudgetCheck:
 
     def test_exceeds_budget(self):
         client = LLMClient.__new__(LLMClient)
+        # 150000 + 60000 = 210000 — well below new 900000 limit, should NOT raise
         client._total_usage = TokenUsage(input_tokens=150000, output_tokens=60000)
+        client.check_budget()  # should pass
+
+    def test_exceeds_new_budget(self):
+        client = LLMClient.__new__(LLMClient)
+        # 800000 + 150000 = 950000 — exceeds new 900000 limit
+        client._total_usage = TokenUsage(input_tokens=800000, output_tokens=150000)
         with pytest.raises(BudgetExceededError):
             client.check_budget()
 

@@ -46,7 +46,8 @@ class EnrichmentAgent(BaseAgent):
         memory.enrichment = {name: r.data for name, r in results.items()}
 
         # Build CVE refs from enrichment data
-        if intent == "cve" and "nvd" in results and results["nvd"].success:
+        _CVE_FAMILY = {"cve", "multi_cve", "vulnerability_advisory", "product_vulnerability", "cwe", "cpe"}
+        if intent in _CVE_FAMILY and "nvd" in results and results["nvd"].success:
             nvd_data = results["nvd"].data
             self._extract_cve_refs(memory, nvd_data, results)
 

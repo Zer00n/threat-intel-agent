@@ -239,14 +239,14 @@ async function _loadTokenUsage() {
     const stats = await API.stats();
     const currentMonth = new Date().toISOString().slice(0, 7);
     const monthly = (stats.monthly_usage || []).find(m => m.year_month === currentMonth);
-    const budget = 50;
-    const spent = monthly ? monthly.total_cost_usd : 0;
-    const remaining = Math.max(0, budget - spent);
-    const pct = budget > 0 ? Math.round((spent / budget) * 100) : 0;
+    // Budget: try CNY first, fall back to USD * 7.2
+    const budgetCny = stats.monthly_budget_cny || (stats.monthly_budget_usd || 50) * 7.2;
+    const spent = monthly ? (monthly.total_cost_usd || 0) : 0;
+    const remaining = Math.max(0, budgetCny - spent);
+    const pct = budgetCny > 0 ? Math.round((spent / budgetCny) * 100) : 0;
 
-    // Only update monthly bar and remaining, don't overwrite current task display
     document.getElementById('usage-bar').style.width = `${Math.min(pct, 100)}%`;
-    document.getElementById('usage-monthly').textContent = `$${remaining.toFixed(2)}`;
+    document.getElementById('usage-monthly').textContent = `¥${remaining.toFixed(2)}`;
     document.getElementById('usage-widget').style.display = 'flex';
   } catch {
     // Stats not available
@@ -431,7 +431,7 @@ function startSSE(taskId) {
       document.getElementById('btn-analyze').textContent = '开始分析';
       document.getElementById('export-bar').style.display = 'inline-flex';
       document.getElementById('report-status').textContent =
-        `完成 · 令牌 ${data.token_usage?.input || 0}入/${data.token_usage?.output || 0}出 · $${data.cost_usd || 0}`;
+        `完成 · 令牌 ${data.token_usage?.input || 0}入/${data.token_usage?.output || 0}出 · ¥${(data.cost_usd || 0).toFixed(4)}`;
       addTimeline('完成', `${data.duration_s}秒`, 'done', 'completed');
       renderMarkdown();
       _loadSidebarHistory();

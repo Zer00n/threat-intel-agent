@@ -39,9 +39,10 @@ class Settings(BaseSettings):
     secrets_encryption_key: str = ""
 
     # Model and cost
-    anthropic_model: str = "claude-opus-4-7"
+    anthropic_model: str = "baidu/cobuddy:free"
     monthly_budget_usd: float = 50.0
-    single_task_token_limit: int = 200_000
+    monthly_budget_cny: float = 300.0
+    single_task_token_limit: int = 900_000
 
     # Agent config
     researcher_count_default: int = 4

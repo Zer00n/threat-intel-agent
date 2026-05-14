@@ -28,7 +28,8 @@ class TestIntentClassifier:
     async def test_cwe_regex(self):
         self.memory.extra["query"] = "What is CWE-79?"
         await self.classifier.run(self.memory)
-        assert self.memory.intent.intent == "cve"
+        # CWE now has its own dedicated intent per intent.md
+        assert self.memory.intent.intent == "cwe"
         assert "CWE-79" in self.memory.intent.entities.get("keywords", [])
 
     @pytest.mark.asyncio

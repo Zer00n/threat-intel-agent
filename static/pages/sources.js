@@ -25,15 +25,17 @@ export async function renderSources(container) {
   health.sources.forEach(s => { healthMap[s.source_name] = s; });
 
   container.innerHTML = `
+    <div class="page-content">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--space-4)">
       <h2>数据源</h2>
       <div style="display:flex;gap:var(--space-2)">
-        <button class="btn btn-sm" onclick="window._refreshAttck()">更新 ATT&CK</button>
-        <button class="btn btn-sm" onclick="window._refreshKev()">同步 KEV</button>
+        <button class="ti-btn ti-btn--secondary ti-btn--sm" onclick="window._refreshAttck()">更新 ATT&CK</button>
+        <button class="ti-btn ti-btn--secondary ti-btn--sm" onclick="window._refreshKev()">同步 KEV</button>
       </div>
     </div>
     <div id="source-update-summary" class="source-update-summary" style="display:none"></div>
     <div id="sources-list"></div>
+    </div>
   `;
 
   const list = document.getElementById('sources-list');
@@ -58,8 +60,8 @@ export async function renderSources(container) {
         </div>
       </div>
       <div style="display:flex;gap:var(--space-2);align-items:center">
-        <span class="badge badge-${statusCls}">${statusText}</span>
-        <button class="btn btn-sm" onclick="window._testSource('${key}')">测试</button>
+        <span class="ti-badge ti-badge--${statusCls === 'success' ? 'success' : statusCls === 'error' ? 'error' : 'info'}">${statusText}</span>
+        <button class="ti-btn ti-btn--secondary ti-btn--sm" onclick="window._testSource('${key}')">测试</button>
       </div>
     `;
     list.appendChild(card);

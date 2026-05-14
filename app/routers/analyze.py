@@ -28,14 +28,36 @@ _INJECTION_PATTERNS = re.compile(
     re.IGNORECASE,
 )
 _ALLOWED_INTENTS = {
+    # Vulnerability / advisory
     "cve",
+    "multi_cve",
+    "vulnerability_advisory",
+    "product_vulnerability",
+    "misconfiguration",
+    # ATT&CK / TTP
     "attack_technique",
+    "tool_or_ttp",
+    # Threat actor / campaign
     "threat_actor",
+    "campaign",
+    # Malware / artifact
     "malware",
-    "ioc_hash",
+    "malware_artifact",
+    # IOC
     "ioc_ip",
     "ioc_domain",
+    "ioc_hash",
+    "ioc_email",
+    "ioc_filepath",
+    # Incident / activity
+    "incident_analysis",
+    "threat_activity",
+    # Standardized identifiers
+    "cwe",
+    "cpe",
+    # Fallback
     "generic",
+    # Legacy aliases (kept for backward-compat with existing DB records and tests)
     "vulnerability_generic",
     "incident_description",
 }
