@@ -69,14 +69,27 @@ class EnrichmentAgent(BaseAgent):
                 continue
 
             if source_name == "nvd" and cve_id:
-                # NVD fallback: use web_search (marked as degraded)
+                # NVD fallback: use web_search (marked as degraded per PRD §7.6)
                 logger.info("nvd_degradation", cve_id=cve_id)
+                try:
+                    from app.agents.web_search import web_search
+                    web_results = await web_search(f"{cve_id} site:nvd.nist.gov", max_results=3)
+                except Exception:
+                    web_results = []
                 results[source_name] = SourceResult(
                     source="nvd",
                     success=True,
-                    data={"degraded": True, "note": f"NVD unavailable, degraded to web_search for {cve_id}"},
+                    data={
+                        "degraded": True,
+                        "note": f"NVD API 不可用，已降级到 web_search，数据可能滞后",
+                        "web_results": web_results,
+                    },
                     from_cache=False,
                 )
+                await self.emit("data_source_error", {
+                    "source": "nvd",
+                    "error": f"API failed, degraded to web_search for {cve_id}",
+                })
 
             elif source_name == "kev":
                 # KEV fallback: use last successful cache (handled by KEV adapter internally)

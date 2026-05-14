@@ -1,6 +1,7 @@
 import API from '../lib/api.js';
 import { TIEventSource } from '../lib/sse.js';
 import { formatDate, statusBadge, confidenceBadge, iocChip, showToast, copyToClipboard } from '../lib/utils.js';
+import { getTechniqueNameZh } from '../lib/attck-i18n.js';
 
 let currentSSE = null;
 let currentTaskId = null;
@@ -175,7 +176,7 @@ export function renderWorkspace(container) {
 
   // Switch intent button
   document.getElementById('btn-switch-intent')?.addEventListener('click', () => {
-    // Show intent switcher - will be handled by showIntentSwitcher
+    showIntentSwitcher();
   });
 
   // History filter chips
@@ -538,6 +539,89 @@ function hideIntentBanner() {
   if (banner) banner.style.display = 'none';
 }
 
+/**
+ * Show intent switcher modal so user can override the auto-detected intent.
+ */
+function showIntentSwitcher() {
+  if (!currentTaskId) return;
+  const intentGroups = [
+    { label: '漏洞相关', items: [
+      { value: 'cve', label: 'CVE 漏洞' },
+      { value: 'multi_cve', label: '多 CVE 关联' },
+      { value: 'vulnerability_advisory', label: '漏洞公告' },
+      { value: 'product_vulnerability', label: '产品漏洞' },
+    ]},
+    { label: 'ATT&CK / TTP', items: [
+      { value: 'attack_technique', label: '攻击技术' },
+      { value: 'tool_or_ttp', label: '工具 / TTP' },
+    ]},
+    { label: '威胁主体', items: [
+      { value: 'threat_actor', label: '威胁组织' },
+      { value: 'campaign', label: '攻击活动' },
+    ]},
+    { label: '恶意软件', items: [
+      { value: 'malware', label: '恶意软件' },
+      { value: 'malware_artifact', label: '恶意样本' },
+    ]},
+    { label: 'IOC 指标', items: [
+      { value: 'ioc_ip', label: 'IP 地址' },
+      { value: 'ioc_domain', label: '域名' },
+      { value: 'ioc_hash', label: '文件哈希' },
+      { value: 'ioc_email', label: '邮箱' },
+      { value: 'ioc_filepath', label: '文件路径' },
+    ]},
+    { label: '其他', items: [
+      { value: 'incident_analysis', label: '事件分析' },
+      { value: 'threat_activity', label: '威胁动态' },
+      { value: 'cwe', label: 'CWE 弱点' },
+      { value: 'cpe', label: 'CPE 产品' },
+      { value: 'generic', label: '通用调研' },
+    ]},
+  ];
+  const overlay = document.createElement('div');
+  overlay.className = 'ti-modal-backdrop';
+  overlay.setAttribute('data-open', '');
+  overlay.innerHTML = `
+    <div class="ti-modal" style="max-width:480px">
+      <div class="ti-modal__header">
+        <h3 class="ti-modal__title">切换调研路径</h3>
+        <button class="ti-btn ti-btn--ghost ti-btn--sm ti-modal__close" aria-label="关闭">✕</button>
+      </div>
+      <div class="ti-modal__body" style="max-height:400px;overflow-y:auto">
+        ${intentGroups.map(g => `
+          <div style="margin-bottom:var(--space-3)">
+            <div style="font-size:var(--text-xs);color:var(--text-muted);margin-bottom:var(--space-1)">${g.label}</div>
+            <div style="display:flex;flex-wrap:wrap;gap:var(--space-1)">
+              ${g.items.map(item => `
+                <button class="ti-btn ti-btn--secondary ti-btn--sm" data-intent="${item.value}">${item.label}</button>
+              `).join('')}
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  const close = () => overlay.remove();
+  overlay.querySelector('.ti-modal__close').addEventListener('click', close);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+
+  overlay.querySelectorAll('[data-intent]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const intent = btn.dataset.intent;
+      try {
+        await API.switchIntent(currentTaskId, intent);
+        hideIntentBanner();
+        close();
+        showToast(`已切换到 ${btn.textContent} 路径`);
+      } catch (err) {
+        showToast(err.message || '切换失败', 'error');
+      }
+    });
+  });
+}
+
 // ─── 100ms throttle render (LOGIC PRESERVED, only DOM target changed) ───
 function scheduleRender() {
   if (renderScheduled) return;
@@ -555,8 +639,134 @@ function renderMarkdown() {
   if (!el || !reportBuffer) return;
   try {
     el.innerHTML = marked.parse(reportBuffer, { breaks: true });
+    enhanceAttckLinks(el);
+    wireIOCChips(el);
   } catch {
     el.textContent = reportBuffer;
+  }
+}
+
+/**
+ * Wire click handlers on IOC chips to show a popover with copy actions.
+ */
+function wireIOCChips(root) {
+  root.querySelectorAll('.chip[data-ioc], .ti-chip[data-ioc]').forEach(chip => {
+    if (chip.dataset.wired) return;
+    chip.dataset.wired = '1';
+    chip.addEventListener('click', (e) => {
+      e.stopPropagation();
+      // Close any other open popovers
+      document.querySelectorAll('[data-popover-open]').forEach(c => {
+        if (c !== chip) delete c.dataset.popoverOpen;
+      });
+      const isOpen = chip.hasAttribute('data-popover-open');
+      if (isOpen) {
+        delete chip.dataset.popoverOpen;
+        return;
+      }
+      let ioc;
+      try { ioc = JSON.parse(chip.dataset.ioc); } catch { return; }
+      // Remove old popover if any
+      const old = chip.querySelector('.ti-chip__popover');
+      if (old) old.remove();
+      const pop = document.createElement('span');
+      pop.className = 'ti-chip__popover';
+      pop.innerHTML = `
+        <div class="ti-chip__popover-row">
+          <span class="ti-chip__popover-label">类型</span>
+          <span class="ti-chip__popover-value">${escapeHtml(ioc.ioc_type || '')}</span>
+        </div>
+        <div class="ti-chip__popover-row">
+          <span class="ti-chip__popover-label">原值</span>
+          <span class="ti-chip__popover-value">${escapeHtml(ioc.value || '')}</span>
+        </div>
+        <div class="ti-chip__popover-row">
+          <span class="ti-chip__popover-label">安全值</span>
+          <span class="ti-chip__popover-value">${escapeHtml(ioc.value_defanged || '')}</span>
+        </div>
+        <div class="ti-chip__popover-actions">
+          <button class="ti-btn ti-btn--secondary ti-btn--sm" data-copy="value">复制原值</button>
+          <button class="ti-btn ti-btn--secondary ti-btn--sm" data-copy="defanged">复制安全值</button>
+        </div>
+      `;
+      pop.querySelectorAll('[data-copy]').forEach(btn => {
+        btn.addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          const text = btn.dataset.copy === 'defanged' ? (ioc.value_defanged || ioc.value) : ioc.value;
+          copyToClipboard(text);
+          delete chip.dataset.popoverOpen;
+        });
+      });
+      chip.appendChild(pop);
+      chip.dataset.popoverOpen = '';
+    });
+  });
+}
+
+// Close IOC popovers when clicking outside
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.chip[data-ioc], .ti-chip[data-ioc]')) {
+    document.querySelectorAll('[data-popover-open]').forEach(c => delete c.dataset.popoverOpen);
+  }
+});
+
+/**
+ * Post-process rendered HTML to auto-link ATT&CK technique IDs (e.g., T1059.001)
+ * with tooltip showing Chinese translation.
+ */
+function enhanceAttckLinks(root) {
+  // Match text nodes that contain ATT&CK technique IDs: T1xxx(.xxx)
+  const ATTCK_RE = /\b(T\d{4}(?:\.\d{2,3})?)\b/g;
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+    acceptNode(node) {
+      // Skip inside <code>, <pre>, <a> tags
+      let parent = node.parentElement;
+      while (parent && parent !== root) {
+        const tag = parent.tagName;
+        if (tag === 'CODE' || tag === 'PRE' || tag === 'A') return NodeFilter.FILTER_REJECT;
+        parent = parent.parentElement;
+      }
+      return ATTCK_RE.test(node.textContent) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+    },
+  });
+
+  const nodesToReplace = [];
+  let node;
+  while ((node = walker.nextNode())) {
+    nodesToReplace.push(node);
+  }
+
+  for (const textNode of nodesToReplace) {
+    const frag = document.createDocumentFragment();
+    let lastIndex = 0;
+    const text = textNode.textContent;
+    ATTCK_RE.lastIndex = 0;
+    let match;
+    while ((match = ATTCK_RE.exec(text)) !== null) {
+      // Preceding text
+      if (match.index > lastIndex) {
+        frag.appendChild(document.createTextNode(text.slice(lastIndex, match.index)));
+      }
+      // Create tooltip span
+      const techniqueId = match[1];
+      const zhName = getTechniqueNameZh(techniqueId, '');
+      const span = document.createElement('span');
+      span.className = 'attck-tooltip';
+      span.textContent = techniqueId;
+      if (zhName) {
+        const popup = document.createElement('span');
+        popup.className = 'attck-tooltip__popup';
+        popup.innerHTML = `<strong>${techniqueId}</strong>${zhName}`;
+        span.appendChild(popup);
+      }
+      frag.appendChild(span);
+      lastIndex = ATTCK_RE.lastIndex;
+    }
+    // Trailing text
+    if (lastIndex < text.length) {
+      frag.appendChild(document.createTextNode(text.slice(lastIndex)));
+    }
+    textNode.parentNode.replaceChild(frag, textNode);
   }
 }
 // ─── END throttle render ───

@@ -96,7 +96,24 @@ async def run_analysis(
     except asyncio.TimeoutError:
         duration = __import__("time").monotonic() - start_time
         logger.warning("analysis_timeout", task_id=task_id, duration=duration)
-        await emit("timeout", {"message": f"Analysis timed out after {settings.analysis_timeout_s}s"})
+
+        has_partial = bool(memory.report_md) or memory.extra.get("partial_completed")
+
+        if has_partial:
+            # Synthesis produced partial content before global timeout
+            await emit("done", {
+                "analysis_id": task_id,
+                "duration_s": round(duration, 1),
+                "token_usage": {
+                    "input": llm.total_usage.input_tokens,
+                    "output": llm.total_usage.output_tokens,
+                },
+                "cost_usd": round(llm.total_usage.cost_usd, 4),
+                "partial": True,
+                "message": f"Analysis partially completed (timed out after {settings.analysis_timeout_s}s)",
+            })
+        else:
+            await emit("timeout", {"message": f"Analysis timed out after {settings.analysis_timeout_s}s"})
 
         if db:
             try:
@@ -112,7 +129,17 @@ async def run_analysis(
             except Exception:
                 pass
 
-        return {"task_id": task_id, "status": "timeout", "memory": memory}
+        status = "completed_partial" if has_partial else "timeout"
+        return {
+            "task_id": task_id,
+            "status": status,
+            "report_md": memory.report_md,
+            "memory": memory,
+            "duration_s": round(duration, 1),
+            "token_input": llm.total_usage.input_tokens,
+            "token_output": llm.total_usage.output_tokens,
+            "cost_usd": llm.total_usage.cost_usd,
+        }
 
     except asyncio.CancelledError:
         await emit("stopped", {"partial_completed": True})
@@ -251,5 +278,8 @@ async def _run_pipeline(
         await asyncio.wait_for(synthesizer.run(memory), timeout=settings.synthesis_timeout_s)
     except asyncio.TimeoutError:
         logger.warning("synthesis_timeout", task_id=task_id)
-        if not memory.report_md:
+        if memory.report_md:
+            # Synthesis timed out but streaming already produced partial content
+            memory.extra["partial_completed"] = True
+        else:
             memory.report_md = synthesizer._fallback_report(memory)

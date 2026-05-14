@@ -794,3 +794,207 @@ body.page-workspace #page-container {
   right: var(--space-5);
   z-index: var(--z-toast);
 }
+
+/* ── Error Page ── */
+
+.error-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  padding: var(--space-8);
+}
+
+.error-page__inner {
+  text-align: center;
+  max-width: 480px;
+}
+
+.error-page__icon {
+  font-size: 48px;
+  margin-bottom: var(--space-4);
+}
+
+.error-page__code {
+  font-size: var(--text-4xl);
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+  line-height: 1;
+}
+
+.error-page__title {
+  font-size: var(--text-xl);
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: var(--space-3) 0 var(--space-2);
+}
+
+.error-page__message {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  margin-bottom: var(--space-6);
+  line-height: 1.6;
+}
+
+.error-page__actions {
+  display: flex;
+  gap: var(--space-3);
+  justify-content: center;
+}
+
+/* ── Onboarding Wizard ── */
+
+.onboarding {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: var(--space-6);
+  background: var(--bg-base);
+}
+
+.onboarding__card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  padding: var(--space-8);
+  max-width: 560px;
+  width: 100%;
+  box-shadow: var(--shadow-lg);
+}
+
+.onboarding__logo {
+  text-align: center;
+  margin-bottom: var(--space-6);
+}
+
+.onboarding__logo h1 {
+  font-family: var(--font-serif);
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.onboarding__logo p {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  margin-top: var(--space-1);
+}
+
+.onboarding__step {
+  margin-bottom: var(--space-6);
+}
+
+.onboarding__step-title {
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: var(--space-4);
+}
+
+.onboarding__option {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 2px solid var(--border-default);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  margin-bottom: var(--space-2);
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.onboarding__option:hover {
+  border-color: var(--accent-primary);
+  background: var(--bg-subtle);
+}
+
+.onboarding__option.selected {
+  border-color: var(--accent-primary);
+  background: color-mix(in srgb, var(--accent-primary) 8%, transparent);
+}
+
+.onboarding__option-icon {
+  font-size: 24px;
+}
+
+.onboarding__option-text {
+  flex: 1;
+}
+
+.onboarding__option-text strong {
+  display: block;
+  color: var(--text-primary);
+}
+
+.onboarding__option-text span {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.onboarding__footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.onboarding__dots {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.onboarding__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--border-default);
+  transition: background 0.2s;
+}
+
+.onboarding__dot.active {
+  background: var(--accent-primary);
+}
+
+/* ── ATT&CK Tooltip ── */
+
+.attck-tooltip {
+  position: relative;
+  display: inline;
+  border-bottom: 1px dashed var(--accent-primary);
+  cursor: help;
+}
+
+.attck-tooltip:hover .attck-tooltip__popup {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.attck-tooltip__popup {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  min-width: 240px;
+  max-width: 360px;
+  box-shadow: var(--shadow-lg);
+  z-index: 100;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.15s ease;
+  pointer-events: none;
+  font-size: var(--text-xs);
+  line-height: 1.5;
+  color: var(--text-primary);
+}
+
+.attck-tooltip__popup strong {
+  display: block;
+  margin-bottom: var(--space-1);
+  color: var(--accent-primary);
+}

@@ -7,6 +7,7 @@ from pathlib import Path
 import httpx
 import structlog
 
+from app.agents.enrichment.base import make_proxied_client
 from app.config import settings
 
 logger = structlog.get_logger()
@@ -28,7 +29,7 @@ async def sync_attck() -> dict:
     target = settings.attck_bundle_file
     target.parent.mkdir(parents=True, exist_ok=True)
 
-    async with httpx.AsyncClient(timeout=120) as client:
+    async with make_proxied_client(timeout=120) as client:
         resp = await client.get(ATTCK_URL)
         resp.raise_for_status()
         target.write_bytes(resp.content)

@@ -5,6 +5,8 @@ import { renderHistoryList } from '../pages/history-list.js';
 import { renderHistoryDetail } from '../pages/history-detail.js';
 import { renderSettings } from '../pages/settings.js';
 import { renderSources } from '../pages/sources.js';
+import { render404 } from '../pages/error.js';
+import { needsOnboarding, renderOnboarding } from '../pages/onboarding.js';
 
 const container = document.getElementById('page-container');
 
@@ -61,6 +63,22 @@ router
   .on('*', () => {
     clearPageClass();
     setBreadcrumb('<span>页面未找到</span>');
-    container.innerHTML = '<div class="empty-state"><h2>页面未找到</h2></div>';
-  })
-  .start();
+    render404(container);
+  });
+
+// Boot: check onboarding first, then start router
+async function boot() {
+  try {
+    if (await needsOnboarding()) {
+      clearPageClass();
+      setBreadcrumb('<span>首次配置</span>');
+      renderOnboarding(container);
+      return;
+    }
+  } catch {
+    // Ignore — proceed to normal routing
+  }
+  router.start();
+}
+
+boot();

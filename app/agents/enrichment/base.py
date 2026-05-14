@@ -11,6 +11,15 @@ from aiolimiter import AsyncLimiter
 logger = structlog.get_logger()
 
 
+def make_proxied_client(**kwargs) -> httpx.AsyncClient:
+    """Create an httpx.AsyncClient with proxy from settings if configured."""
+    from app.config import settings
+    proxy = settings.http_proxy
+    if proxy:
+        kwargs["proxy"] = proxy
+    return httpx.AsyncClient(**kwargs)
+
+
 @dataclass
 class SourceResult:
     source: str
@@ -27,7 +36,7 @@ class EnrichmentSource(ABC):
     cache_ttl: int = 86400  # seconds
 
     def __init__(self, client: httpx.AsyncClient | None = None, limiter: AsyncLimiter | None = None):
-        self._client = client or httpx.AsyncClient(timeout=15)
+        self._client = client or make_proxied_client(timeout=15)
         self._limiter = limiter or AsyncLimiter(10, 1)
         self._owns_client = client is None
 

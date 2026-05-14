@@ -6,6 +6,8 @@ from pathlib import Path
 
 import httpx
 
+from app.agents.enrichment.base import make_proxied_client
+
 
 async def download_attck_bundle(target: Path) -> None:
     if target.exists():
@@ -17,7 +19,7 @@ async def download_attck_bundle(target: Path) -> None:
 
     target.parent.mkdir(parents=True, exist_ok=True)
 
-    async with httpx.AsyncClient(timeout=120) as client:
+    async with make_proxied_client(timeout=120) as client:
         resp = await client.get(url)
         resp.raise_for_status()
         target.write_bytes(resp.content)

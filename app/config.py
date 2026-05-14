@@ -28,6 +28,9 @@ class Settings(BaseSettings):
     # API format: "anthropic" or "openai" (for OpenAI-compatible providers)
     api_format: str = "anthropic"
 
+    # Proxy — http or socks5, configure one (e.g. http://127.0.0.1:7890 or socks5://127.0.0.1:7890)
+    http_proxy: str = ""
+
     # Optional data source keys
     nvd_api_key: str = ""
     github_token: str = ""

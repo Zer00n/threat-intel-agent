@@ -8,7 +8,7 @@ from typing import Any, Callable
 import httpx
 import structlog
 
-from app.agents.enrichment.base import EnrichmentSource, SourceResult
+from app.agents.enrichment.base import EnrichmentSource, SourceResult, make_proxied_client
 from app.agents.enrichment.nvd import NvdSource
 from app.agents.enrichment.kev import KevSource
 from app.agents.enrichment.epss import EpssSource
@@ -46,7 +46,7 @@ async def run_enrichment(
     source_instances: dict[str, EnrichmentSource] = {}
     owns_client = client is None
     if client is None:
-        client = httpx.AsyncClient(timeout=15)
+        client = make_proxied_client(timeout=15)
 
     try:
         for src_name in sources:

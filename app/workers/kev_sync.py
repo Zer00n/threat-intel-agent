@@ -7,6 +7,7 @@ from pathlib import Path
 import httpx
 import structlog
 
+from app.agents.enrichment.base import make_proxied_client
 from app.config import settings
 
 logger = structlog.get_logger()
@@ -28,7 +29,7 @@ async def sync_kev() -> dict:
     cache_path = settings.data_dir_path / "kev_cache.json"
     cache_path.parent.mkdir(parents=True, exist_ok=True)
 
-    async with httpx.AsyncClient(timeout=60) as client:
+    async with make_proxied_client(timeout=60) as client:
         resp = await client.get(KEV_URL)
         resp.raise_for_status()
         data = resp.json()

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,14 +16,14 @@ async def get_cached(db: AsyncSession, cache_key: str) -> dict | None:
     if row is None:
         return None
     expires = parse_iso(row.expires_at)
-    if expires < __import__("datetime").datetime.now(__import__("datetime").timezone.utc):
+    if expires < datetime.now(timezone.utc):
         return None
     return json.loads(row.payload)
 
 
 async def set_cached(db: AsyncSession, cache_key: str, source: str, payload: dict, ttl_seconds: int) -> None:
     now = now_iso()
-    expires = __import__("datetime").datetime.datetime.now(__import__("datetime").timezone.utc) + __import__("datetime").datetime.timedelta(seconds=ttl_seconds)
+    expires = datetime.now(timezone.utc) + timedelta(seconds=ttl_seconds)
     obj = DataSourceCache(
         cache_key=cache_key,
         source=source,

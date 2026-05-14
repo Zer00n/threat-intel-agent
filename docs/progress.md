@@ -1,6 +1,6 @@
 # Threat Intel Agent v2.0 开发进度记录
 
-**最后更新**: 2026-05-05
+**最后更新**: 2026-05-14
 
 ---
 
@@ -9,7 +9,7 @@
 | 指标 | 数值 |
 |------|------|
 | 项目文件 | 115+ |
-| 测试用例 | 55 (全部通过) |
+| 测试用例 | 118 (全部通过) |
 | 数据库表 | 14 + 1 FTS5 |
 | API 端点 | 23 |
 | Agent | 7 |
@@ -132,16 +132,18 @@ API_FORMAT=openai
 ## 已知限制
 
 ### 未实现功能 (P2)
-- 思考过程折叠块 (FR-23)
-- Token 月度余量侧栏 (FR-25)
-- IOC chip 点击交互 (FR-26)
-- switch_intent 联动 (FR-04)
-- 输入注入定界符 (§14.1)
+- ~~思考过程折叠块 (FR-23)~~ ✅ 已确认完整实现
+- ~~Token 月度余量侧栏 (FR-25)~~ ✅ 已确认完整实现
+- ~~IOC chip 点击交互 (FR-26)~~ ✅ 已实现（popover + 复制）
+- ~~switch_intent 联动 (FR-04)~~ ✅ 已实现（modal 选择器）
+- ~~输入注入定界符 (§14.1)~~ ✅ 已实现（全部 7 个 Agent）
+- ~~cache_cleanup worker~~ ✅ 已实现（调用 cleanup_expired）
 
 ### 测试覆盖
-- 单元测试: 55 个 ✅
-- 集成测试: 未编写
-- E2E 测试: 未编写
+- 单元测试: 38 个 ✅（含新增 cache_cleanup + injection_defense）
+- 集成测试: 30 个 ✅（含新增 export STIX/Sigma/ZIP、settings CRUD、switch_intent、audit_logs）
+- Agent 测试: 48 个 ✅
+- E2E 测试: 2 个（需手动启用）
 
 ---
 

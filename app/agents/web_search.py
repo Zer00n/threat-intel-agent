@@ -6,6 +6,9 @@ from typing import Any
 
 import httpx
 import structlog
+from aiolimiter import AsyncLimiter
+
+from app.agents.enrichment.base import make_proxied_client
 
 logger = structlog.get_logger()
 
@@ -14,21 +17,26 @@ _HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
 }
 
+# Global rate limiter: max 10 requests per second across all concurrent searches
+_rate_limiter = AsyncLimiter(max_rate=10, time_period=1.0)
+
 
 async def web_search(query: str, max_results: int = 5) -> list[dict[str, Any]]:
     """Search DuckDuckGo and return structured results.
 
     Returns list of dicts with keys: title, url, snippet.
+    Rate-limited to 10 req/s globally.
     """
     try:
-        async with httpx.AsyncClient(timeout=10, follow_redirects=True) as client:
-            resp = await client.post(
-                _DDG_URL,
-                data={"q": query, "kl": ""},
-                headers=_HEADERS,
-            )
-            resp.raise_for_status()
-            return _parse_results(resp.text, max_results)
+        async with _rate_limiter:
+            async with make_proxied_client(timeout=10, follow_redirects=True) as client:
+                resp = await client.post(
+                    _DDG_URL,
+                    data={"q": query, "kl": ""},
+                    headers=_HEADERS,
+                )
+                resp.raise_for_status()
+                return _parse_results(resp.text, max_results)
     except Exception as e:
         logger.warning("web_search_failed", query=query[:80], error=str(e))
         return []

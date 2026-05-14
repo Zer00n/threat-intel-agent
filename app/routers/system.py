@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.deps import get_db
 from app.db.models import Analysis, AuditLog, SourceHealth, TokenUsageMonthly
+from app.config import settings as app_settings
 
 router = APIRouter(tags=["system"])
 
@@ -23,7 +24,12 @@ async def health_check(db: AsyncSession = Depends(get_db)):
     if not db_ok:
         return {"status": "degraded", "db": False}
 
-    return {"status": "ok", "db": True, "version": "0.7.0"}
+    return {
+        "status": "ok",
+        "db": True,
+        "version": "0.8.0",
+        "api_key_configured": bool(app_settings.anthropic_api_key),
+    }
 
 
 @router.get("/stats")

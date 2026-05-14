@@ -361,6 +361,62 @@
 .ti-chip--url    { border-color: color-mix(in oklab, var(--ioc-url) 30%, transparent); background: var(--ioc-url-bg); }
 .ti-chip--url    .ti-chip__icon { background: var(--ioc-url); color: #fff; }
 
+/* IOC chip click popover */
+.ti-chip { position: relative; cursor: pointer; }
+.ti-chip__popover {
+  display: none;
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  min-width: 220px;
+  padding: var(--space-3);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  white-space: normal;
+}
+.ti-chip__popover::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 6px solid transparent;
+  border-top-color: var(--bg-elevated);
+}
+.ti-chip[data-popover-open] .ti-chip__popover { display: block; }
+.ti-chip__popover-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-1) 0;
+}
+.ti-chip__popover-row + .ti-chip__popover-row { border-top: 1px solid var(--border-subtle); }
+.ti-chip__popover-label {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+.ti-chip__popover-value {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  word-break: break-all;
+  flex: 1;
+  text-align: right;
+}
+.ti-chip__popover-actions {
+  display: flex;
+  gap: var(--space-1);
+  margin-top: var(--space-2);
+}
+
 
 /* ==========================================================================
    6. Tag

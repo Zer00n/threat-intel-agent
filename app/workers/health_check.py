@@ -5,6 +5,7 @@ import asyncio
 import httpx
 import structlog
 
+from app.agents.enrichment.base import make_proxied_client
 from app.agents.enrichment.orchestrator import SOURCE_MAP
 from app.db.engine import async_session_factory
 from app.db.repositories.sources_health import upsert_health
@@ -25,7 +26,7 @@ async def run_periodic() -> None:
 
 async def check_all_sources() -> None:
     """Check health of all configured data sources and persist results."""
-    async with httpx.AsyncClient(timeout=10) as client:
+    async with make_proxied_client(timeout=10) as client:
         async with async_session_factory() as db:
             for source_name, source_cls in SOURCE_MAP.items():
                 try:
