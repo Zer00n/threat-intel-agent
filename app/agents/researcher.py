@@ -137,6 +137,11 @@ def _adjust_confidence(source_url: str, claimed_confidence: str) -> str:
 
     return confidence
 
+
+def _truncate(value: str, limit: int = 600) -> str:
+    value = value or ""
+    return value if len(value) <= limit else value[: limit - 1].rstrip() + "..."
+
 _PROMPT_FILE = Path(__file__).parent / "prompts" / "researcher.md"
 
 
@@ -212,6 +217,13 @@ class ResearchAgent(BaseAgent):
 
     async def run(self, memory: Memory, question: str = "", **kwargs: Any) -> AgentResult:
         await self.emit("agent_start", {"agent_id": self._agent_id, "question": question})
+        await self._emit_trace(
+            "agent_start",
+            "Research agent started",
+            f"Research question: {_truncate(question, 220)}",
+            status="running",
+            details={"question": question},
+        )
 
         if not self._llm:
             return AgentResult(success=False, error="no LLM client")
@@ -236,8 +248,28 @@ class ResearchAgent(BaseAgent):
         for round_num in range(1, settings.researcher_max_rounds + 1):
             rounds_used = round_num
             await self.emit("thinking", {"agent_id": self._agent_id, "content": f"Research round {round_num}"})
+            await self._emit_trace(
+                "round_start",
+                f"Research round {round_num}",
+                "Preparing an LLM tool decision for this research question.",
+                round_num=round_num,
+                status="running",
+                details={
+                    "question": question,
+                    "available_tools": ["web_search", "submit_findings"],
+                    "messages_count": len(messages),
+                },
+            )
 
             try:
+                await self._emit_trace(
+                    "llm_call",
+                    "LLM tool decision",
+                    "Asking the model to either search the web or submit sourced findings.",
+                    round_num=round_num,
+                    status="running",
+                    details={"max_tokens": 4096, "tools": ["web_search", "submit_findings"]},
+                )
                 resp = await self._llm.complete(
                     system=system,
                     messages=messages,
@@ -246,7 +278,33 @@ class ResearchAgent(BaseAgent):
                 )
             except Exception as e:
                 await self.emit("agent_error", {"agent_id": self._agent_id, "message": str(e)})
+                await self._emit_trace(
+                    "agent_error",
+                    "LLM call failed",
+                    str(e),
+                    round_num=round_num,
+                    status="failed",
+                )
                 break
+
+            await self._emit_trace(
+                "llm_response",
+                "LLM selected next action",
+                resp.tool_name or "No tool call returned",
+                round_num=round_num,
+                status="completed",
+                details={
+                    "tool_name": resp.tool_name,
+                    "tool_input": resp.tool_use,
+                    "assistant_text": _truncate(resp.content, 800),
+                    "usage": {
+                        "input_tokens": resp.usage.input_tokens,
+                        "output_tokens": resp.usage.output_tokens,
+                        "cost_usd": resp.usage.cost_usd,
+                    },
+                    "stop_reason": resp.stop_reason,
+                },
+            )
 
             if resp.tool_name == "submit_findings":
                 for f in resp.tool_use.get("findings", []):
@@ -265,6 +323,24 @@ class ResearchAgent(BaseAgent):
                     # Track source URL for sources_used table (PRD §FR-20)
                     if source_url and source_url.startswith("http"):
                         memory.sources_used.add(source_url)
+                await self._emit_trace(
+                    "submit_findings",
+                    "Submitted findings",
+                    f"{len(findings)} finding(s) submitted for synthesis.",
+                    round_num=round_num,
+                    status="completed",
+                    details={
+                        "findings": [
+                            {
+                                "claim": f.claim,
+                                "source_url": f.source_url,
+                                "source_name": f.source_name,
+                                "confidence": f.confidence,
+                            }
+                            for f in findings
+                        ],
+                    },
+                )
                 await self.emit("agent_done", {
                     "agent_id": self._agent_id,
                     "rounds": rounds_used,
@@ -274,12 +350,21 @@ class ResearchAgent(BaseAgent):
 
             if resp.tool_name == "web_search":
                 query = resp.tool_use.get("query", "")
+                cache_hit = self._search_cache.get(query) is not None
                 await self.emit("searching", {
                     "agent_id": self._agent_id,
                     "query": query,
                     "round": round_num,
-                    "cache_hit": self._search_cache.get(query) is not None,
+                    "cache_hit": cache_hit,
                 })
+                await self._emit_trace(
+                    "tool_call",
+                    "Calling web_search",
+                    query,
+                    round_num=round_num,
+                    status="running",
+                    details={"tool": "web_search", "query": query, "cache_hit": cache_hit},
+                )
 
                 results = await self._search_cache.get_or_fetch(query, self._mock_search)
 
@@ -288,6 +373,26 @@ class ResearchAgent(BaseAgent):
                     "source_count": len(results),
                     "round": round_num,
                 })
+                await self._emit_trace(
+                    "tool_result",
+                    "web_search returned results",
+                    f"{len(results)} result(s) returned.",
+                    round_num=round_num,
+                    status="completed",
+                    details={
+                        "tool": "web_search",
+                        "query": query,
+                        "source_count": len(results),
+                        "results": [
+                            {
+                                "title": r.get("title", ""),
+                                "url": r.get("url", ""),
+                                "snippet": _truncate(r.get("snippet", ""), 240),
+                            }
+                            for r in results[:5]
+                        ],
+                    },
+                )
 
                 messages.append({"role": "assistant", "content": resp.content or f"Searching for: {query}"})
                 messages.append({
@@ -302,6 +407,13 @@ class ResearchAgent(BaseAgent):
         if not findings:
             # Fallback: ask LLM to submit findings from what it gathered
             try:
+                await self._emit_trace(
+                    "fallback_submit",
+                    "Fallback finding submission",
+                    "Search rounds ended without findings; asking the model to submit partial sourced findings.",
+                    round_num=rounds_used,
+                    status="running",
+                )
                 messages.append({"role": "user", "content": "You have used all search rounds. Now call submit_findings with whatever information you have gathered. Even partial findings are better than none."})
                 resp = await self._llm.complete(
                     system=system,
@@ -326,8 +438,33 @@ class ResearchAgent(BaseAgent):
                         if source_url and source_url.startswith("http"):
                             memory.sources_used.add(source_url)
                     memory.findings.extend(findings)
+                    await self._emit_trace(
+                        "submit_findings",
+                        "Submitted fallback findings",
+                        f"{len(findings)} fallback finding(s) submitted.",
+                        round_num=rounds_used,
+                        status="completed",
+                        details={
+                            "findings": [
+                                {
+                                    "claim": f.claim,
+                                    "source_url": f.source_url,
+                                    "source_name": f.source_name,
+                                    "confidence": f.confidence,
+                                }
+                                for f in findings
+                            ],
+                        },
+                    )
             except Exception as e:
                 await self.emit("agent_error", {"agent_id": self._agent_id, "message": str(e)})
+                await self._emit_trace(
+                    "agent_error",
+                    "Fallback submission failed",
+                    str(e),
+                    round_num=rounds_used,
+                    status="failed",
+                )
 
         if not findings:
             await self.emit("agent_done", {
@@ -336,7 +473,36 @@ class ResearchAgent(BaseAgent):
                 "findings_count": 0,
             })
 
+        await self._emit_trace(
+            "agent_done",
+            "Research agent finished",
+            f"{len(findings)} finding(s), {rounds_used} round(s).",
+            round_num=rounds_used,
+            status="completed",
+            details={"findings_count": len(findings), "rounds_used": rounds_used},
+        )
         return AgentResult(data={"findings": len(findings), "rounds": rounds_used})
+
+    async def _emit_trace(
+        self,
+        action: str,
+        title: str,
+        summary: str = "",
+        *,
+        round_num: int | None = None,
+        status: str = "running",
+        details: dict[str, Any] | None = None,
+    ) -> None:
+        await self.emit("agent_trace", {
+            "agent_id": self._agent_id,
+            "agent_type": self.name,
+            "round": round_num,
+            "action": action,
+            "title": title,
+            "summary": summary,
+            "status": status,
+            "details": details or {},
+        })
 
     async def _mock_search(self, query: str) -> list[dict[str, Any]]:
         """Real web search using DuckDuckGo."""

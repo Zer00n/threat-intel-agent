@@ -1,8 +1,8 @@
 export class TIEventSource {
-  constructor(taskId, handlers = {}) {
+  constructor(taskId, handlers = {}, options = {}) {
     this.taskId = taskId;
     this.handlers = handlers;
-    this.lastEventId = null;
+    this.lastEventId = options.lastEventId ?? null;
     this.reconnectAttempts = 0;
     this.maxReconnectDelay = 30000;
     this._aborted = false;
@@ -13,7 +13,7 @@ export class TIEventSource {
   _connect() {
     if (this._aborted) return;
     this._controller = new AbortController();
-    const url = this.lastEventId
+    const url = this.lastEventId !== null && this.lastEventId !== undefined
       ? `/stream/${this.taskId}?last_event_id=${this.lastEventId}`
       : `/stream/${this.taskId}`;
 

@@ -50,6 +50,8 @@ const API = {
 
   deleteHistory: (id) => API.del(`/history/${id}`),
 
+  batchDeleteHistory: (ids) => API.post('/history/batch_delete', { ids }),
+
   sourcesHealth: () => API.get('/sources/health'),
 
   testSource: (name) => API.post(`/sources/test/${name}`),

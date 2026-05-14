@@ -7,6 +7,11 @@ export async function renderHistoryDetail(container, id) {
 
   try {
     const data = await API.historyDetail(id);
+    if (data.status === 'running') {
+      sessionStorage.setItem('ti-active-task-id', data.id);
+      window.location.hash = '#/';
+      return;
+    }
     renderDetail(container, data);
   } catch (err) {
     container.innerHTML = `<div class="empty-state"><h3>未找到分析记录</h3><p>${err.message}</p></div>`;
@@ -387,6 +392,12 @@ function renderTraceTab(data) {
     return;
   }
 
+  const agentTraceLogs = data.agent_logs.filter(log => log.event_type === 'agent_trace' && log.payload);
+  if (agentTraceLogs.length) {
+    panel.innerHTML = renderAgentTraceGroups(agentTraceLogs);
+    return;
+  }
+
   panel.innerHTML = `
     <ul class="trace">
       ${data.agent_logs.map(log => `
@@ -409,9 +420,103 @@ function renderTraceTab(data) {
   `;
 }
 
+function renderAgentTraceGroups(logs) {
+  const groups = new Map();
+  for (const log of logs) {
+    const payload = log.payload || {};
+    const agentId = payload.agent_id || log.agent_name || 'agent';
+    if (!groups.has(agentId)) groups.set(agentId, []);
+    groups.get(agentId).push({ log, payload });
+  }
+
+  return `
+    <div class="agent-trace-list">
+      ${[...groups.entries()].map(([agentId, entries]) => `
+        <details class="agent-trace" open>
+          <summary class="agent-trace__head">
+            <span class="agent-trace__chev">▶</span>
+            <span class="agent-trace__name">${escapeHtml(agentId)}</span>
+            <span class="agent-trace__type">${escapeHtml(entries[0].payload.agent_type || 'Agent')}</span>
+            <span class="agent-trace__count">${entries.length} steps</span>
+          </summary>
+          <div class="agent-trace__body">
+            ${entries.map(({ log, payload }) => `
+              <details class="agent-step" ${payload.status === 'running' || payload.action === 'tool_result' || payload.action === 'submit_findings' ? 'open' : ''}>
+                <summary class="agent-step__head">
+                  <span class="agent-step__dot"><span class="ti-status-dot ti-status-dot--${traceStatus(payload.status)}"></span></span>
+                  <span class="agent-step__title">${escapeHtml(payload.title || payload.action || log.event_type)}</span>
+                  ${payload.round ? `<span class="agent-step__round">Round ${payload.round}</span>` : ''}
+                  <span class="agent-step__action">${escapeHtml(payload.action || '')}</span>
+                  <span class="agent-step__time">${formatDate(log.created_at)}</span>
+                </summary>
+                <div class="agent-step__body">
+                  ${payload.summary ? `<p class="agent-step__summary">${escapeHtml(payload.summary)}</p>` : ''}
+                  ${renderTraceDetails(payload.details)}
+                </div>
+              </details>
+            `).join('')}
+          </div>
+        </details>
+      `).join('')}
+    </div>
+  `;
+}
+
+function traceStatus(status) {
+  if (status === 'completed') return 'completed';
+  if (status === 'failed' || status === 'error') return 'failed';
+  if (status === 'interrupted') return 'interrupted';
+  return 'running';
+}
+
+function renderTraceDetails(details = {}) {
+  if (!details || Object.keys(details).length === 0) return '';
+
+  if (Array.isArray(details.results)) {
+    return `
+      <div class="agent-step__section">搜索结果</div>
+      <ol class="agent-step__results">
+        ${details.results.map(r => `
+          <li>
+            <a href="${escapeAttr(r.url || '#')}" target="_blank" rel="noreferrer">${escapeHtml(r.title || r.url || 'Untitled')}</a>
+            ${r.snippet ? `<p>${escapeHtml(r.snippet)}</p>` : ''}
+          </li>
+        `).join('')}
+      </ol>
+      ${renderTraceJson(details)}
+    `;
+  }
+
+  if (Array.isArray(details.findings)) {
+    return `
+      <div class="agent-step__section">提交的发现</div>
+      <ul class="agent-step__findings">
+        ${details.findings.map(f => `
+          <li>
+            <strong>${escapeHtml(f.claim || '')}</strong>
+            <span>${escapeHtml(f.confidence || '')}</span>
+            ${f.source_url ? `<a href="${escapeAttr(f.source_url)}" target="_blank" rel="noreferrer">${escapeHtml(f.source_name || f.source_url)}</a>` : ''}
+          </li>
+        `).join('')}
+      </ul>
+      ${renderTraceJson(details)}
+    `;
+  }
+
+  return renderTraceJson(details);
+}
+
+function renderTraceJson(details) {
+  return `<pre class="agent-step__json">${escapeHtml(JSON.stringify(details, null, 2))}</pre>`;
+}
+
 function escapeHtml(str) {
   if (!str) return '';
   const div = document.createElement('div');
   div.textContent = str;
   return div.innerHTML;
+}
+
+function escapeAttr(str) {
+  return escapeHtml(str).replace(/"/g, '&quot;');
 }

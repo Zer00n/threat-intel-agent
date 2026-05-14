@@ -5,10 +5,12 @@ import { getTechniqueNameZh } from '../lib/attck-i18n.js';
 
 let currentSSE = null;
 let currentTaskId = null;
+const ACTIVE_TASK_KEY = 'ti-active-task-id';
 
 export function renderWorkspace(container) {
   if (currentSSE) { currentSSE.abort(); currentSSE = null; }
-  currentTaskId = null;
+  const taskToResume = sessionStorage.getItem(ACTIVE_TASK_KEY);
+  if (!taskToResume) currentTaskId = null;
 
   // Set body class for workspace layout
   document.body.classList.add('page-workspace');
@@ -133,7 +135,7 @@ export function renderWorkspace(container) {
             <details class="thinking" id="thinking-block">
               <summary class="thinking__head">
                 <span class="thinking__chevron">▶</span>
-                <span class="thinking__label">思考过程</span>
+                <span class="thinking__label">Agent 执行日志</span>
                 <span class="thinking__count" id="thinking-count">折叠</span>
               </summary>
               <div class="thinking__body" id="thinking-content"></div>
@@ -203,6 +205,10 @@ export function renderWorkspace(container) {
 
   // Load token usage
   _loadTokenUsage();
+
+  if (taskToResume) {
+    resumeRunningTask(taskToResume);
+  }
 }
 
 async function _loadSidebarHistory(intent = '', search = '') {
@@ -255,6 +261,10 @@ async function _loadTokenUsage() {
 }
 
 window._openHistory = (id) => {
+  if (id === currentTaskId) {
+    window.location.hash = '#/';
+    return;
+  }
   window.location.hash = `#/history/${id}`;
 };
 
@@ -271,23 +281,9 @@ window._startAnalysis = async () => {
   try {
     const result = await API.analyze(query);
     currentTaskId = result.task_id;
+    sessionStorage.setItem(ACTIVE_TASK_KEY, result.task_id);
 
-    // Show analysis UI
-    document.getElementById('report-scroll').style.display = 'block';
-    btnStop.style.display = 'inline-flex';
-    btn.style.display = 'none';
-
-    // Update timeline task info
-    const timelineTask = document.getElementById('timeline-task');
-    timelineTask.style.display = 'flex';
-    document.getElementById('timeline-task-id').textContent = result.task_id.slice(0, 8);
-    document.getElementById('timeline-elapsed').textContent = '0s';
-
-    // Clear previous content
-    document.getElementById('timeline-list').innerHTML = '';
-    document.getElementById('thinking-content').innerHTML = '';
-    document.getElementById('report-content').innerHTML = '<p style="color:var(--text-muted)">正在连接分析流...</p>';
-    document.getElementById('cursor').style.display = 'inline-block';
+    showRunningTaskUI(result.task_id, { reset: true });
 
     // Update breadcrumb
     const breadcrumb = document.getElementById('header-breadcrumb');
@@ -311,6 +307,23 @@ window._startAnalysis = async () => {
   }
 };
 
+window._resumeRunningTask = (id) => {
+  if (!id) return;
+  sessionStorage.setItem(ACTIVE_TASK_KEY, id);
+  window.location.hash = '#/';
+};
+
+window._suspendWorkspace = () => {
+  if (currentSSE) {
+    currentSSE.abort();
+    currentSSE = null;
+  }
+  if (elapsedInterval) {
+    clearInterval(elapsedInterval);
+    elapsedInterval = null;
+  }
+};
+
 window._stopAnalysis = async () => {
   if (!currentTaskId) return;
   try {
@@ -322,14 +335,20 @@ window._stopAnalysis = async () => {
 };
 
 let timelineItems = [];
+let agentTraceCount = 0;
 let reportBuffer = '';
 let renderScheduled = false;
 let elapsedSeconds = 0;
 let elapsedInterval = null;
 
 function startSSE(taskId) {
+  startSSEWithOptions(taskId, {});
+}
+
+function startSSEWithOptions(taskId, options = {}) {
   timelineItems = [];
-  reportBuffer = '';
+  agentTraceCount = 0;
+  if (options.resetBuffer !== false) reportBuffer = '';
   elapsedSeconds = 0;
 
   // Start elapsed timer
@@ -375,16 +394,18 @@ function startSSE(taskId) {
       addTimeline(`${data.agent_id}`, data.question, 'research', 'running');
     },
     thinking: (data) => {
-      const el = document.getElementById('thinking-content');
-      if (el) {
-        const entry = document.createElement('p');
-        entry.textContent = `[${data.agent_id || ''}] ${data.content || ''}`;
-        el.appendChild(entry);
-        el.scrollTop = el.scrollHeight;
-        // Update count
-        const count = el.querySelectorAll('p').length;
-        document.getElementById('thinking-count').textContent = `${count} 步`;
-      }
+      addAgentTrace({
+        agent_id: data.agent_id || 'agent',
+        agent_type: 'Agent',
+        action: (data.content || '').startsWith('Research round') ? 'round_start' : 'thinking',
+        title: data.content || 'Thinking update',
+        summary: data.content || '',
+        status: 'running',
+        details: {},
+      });
+    },
+    agent_trace: (data) => {
+      addAgentTrace(data);
     },
     searching: (data) => {
       addTimeline(`${data.agent_id}`, `搜索「${data.query}」第 ${data.round} 轮`, 'research', 'running');
@@ -424,6 +445,7 @@ function startSSE(taskId) {
       updateTimelineLast('Sigma 生成', `${data.rules_count} 条规则`, 'completed');
     },
     done: (data) => {
+      clearActiveTask();
       if (elapsedInterval) { clearInterval(elapsedInterval); elapsedInterval = null; }
       document.getElementById('cursor').style.display = 'none';
       document.getElementById('btn-stop').style.display = 'none';
@@ -442,6 +464,7 @@ function startSSE(taskId) {
       _loadTokenUsage();
     },
     error: (data) => {
+      clearActiveTask();
       if (elapsedInterval) { clearInterval(elapsedInterval); elapsedInterval = null; }
       document.getElementById('cursor').style.display = 'none';
       document.getElementById('btn-stop').style.display = 'none';
@@ -452,6 +475,7 @@ function startSSE(taskId) {
       showToast(data.message, 'error');
     },
     stopped: () => {
+      clearActiveTask();
       if (elapsedInterval) { clearInterval(elapsedInterval); elapsedInterval = null; }
       document.getElementById('cursor').style.display = 'none';
       document.getElementById('btn-stop').style.display = 'none';
@@ -461,12 +485,14 @@ function startSSE(taskId) {
       addTimeline('已停止', '分析已取消', 'warning', 'interrupted');
     },
     budget_exceeded: (data) => {
+      clearActiveTask();
       if (elapsedInterval) { clearInterval(elapsedInterval); elapsedInterval = null; }
       document.getElementById('cursor').style.display = 'none';
       addTimeline('预算超限', data.message, 'error', 'failed');
       showToast(data.message, 'error');
     },
     timeout: (data) => {
+      clearActiveTask();
       if (elapsedInterval) { clearInterval(elapsedInterval); elapsedInterval = null; }
       document.getElementById('cursor').style.display = 'none';
       addTimeline('超时', data.message, 'error', 'failed');
@@ -474,7 +500,159 @@ function startSSE(taskId) {
     },
   };
 
-  currentSSE = new TIEventSource(taskId, handlers);
+  currentSSE = new TIEventSource(taskId, handlers, {
+    lastEventId: options.replay ? 0 : null,
+  });
+}
+
+function clearActiveTask() {
+  sessionStorage.removeItem(ACTIVE_TASK_KEY);
+}
+
+async function resumeRunningTask(taskId) {
+  currentTaskId = taskId;
+  showRunningTaskUI(taskId, { reset: true });
+  showToast('已恢复运行中的分析任务');
+  startSSEWithOptions(taskId, { replay: true });
+}
+
+function showRunningTaskUI(taskId, { reset = false } = {}) {
+  currentTaskId = taskId;
+  document.getElementById('report-scroll').style.display = 'block';
+  document.getElementById('btn-stop').style.display = 'inline-flex';
+  document.getElementById('btn-analyze').style.display = 'none';
+  document.getElementById('btn-analyze').disabled = false;
+
+  const timelineTask = document.getElementById('timeline-task');
+  if (timelineTask) timelineTask.style.display = 'flex';
+  document.getElementById('timeline-task-id').textContent = taskId.slice(0, 8);
+  document.getElementById('timeline-elapsed').textContent = '0s';
+  document.getElementById('report-id').textContent = taskId.slice(0, 8);
+  document.getElementById('report-status').textContent = '正在运行...';
+  document.getElementById('cursor').style.display = 'inline-block';
+  document.getElementById('export-bar').style.display = 'none';
+
+  if (reset) {
+    timelineItems = [];
+    agentTraceCount = 0;
+    reportBuffer = '';
+    document.getElementById('timeline-list').innerHTML = '';
+    document.getElementById('thinking-content').innerHTML = '';
+    document.getElementById('thinking-count').textContent = '折叠';
+    document.getElementById('report-content').innerHTML = '<p style="color:var(--text-muted)">正在恢复分析流...</p>';
+  }
+
+  const breadcrumb = document.getElementById('header-breadcrumb');
+  if (breadcrumb) {
+    breadcrumb.innerHTML = `
+      <a href="#/">工作区</a>
+      <span class="sep">›</span>
+      <span class="app-header__taskid">${taskId.slice(0, 8)}</span>
+      <span class="ti-badge ti-badge--info" style="margin-left: 4px;">运行中</span>
+    `;
+  }
+}
+
+function addAgentTrace(data) {
+  const root = document.getElementById('thinking-content');
+  if (!root) return;
+
+  const agentId = data.agent_id || 'agent';
+  let group = [...root.querySelectorAll('.agent-trace')]
+    .find(el => el.dataset.agentTrace === agentId);
+  if (!group) {
+    group = document.createElement('details');
+    group.className = 'agent-trace';
+    group.open = true;
+    group.dataset.agentTrace = agentId;
+    group.innerHTML = `
+      <summary class="agent-trace__head">
+        <span class="agent-trace__chev">▶</span>
+        <span class="agent-trace__name">${escapeHtml(agentId)}</span>
+        <span class="agent-trace__type">${escapeHtml(data.agent_type || 'Agent')}</span>
+        <span class="agent-trace__count" data-agent-count>0 steps</span>
+      </summary>
+      <div class="agent-trace__body"></div>
+    `;
+    root.appendChild(group);
+  }
+
+  const body = group.querySelector('.agent-trace__body');
+  const step = document.createElement('details');
+  step.className = 'agent-step';
+  if (data.status === 'running' || data.action === 'tool_result' || data.action === 'submit_findings') {
+    step.open = true;
+  }
+  step.innerHTML = `
+    <summary class="agent-step__head">
+      <span class="agent-step__dot"><span class="ti-status-dot ti-status-dot--${traceStatus(data.status)}"></span></span>
+      <span class="agent-step__title">${escapeHtml(data.title || data.action || 'Step')}</span>
+      ${data.round ? `<span class="agent-step__round">Round ${data.round}</span>` : ''}
+      <span class="agent-step__action">${escapeHtml(data.action || '')}</span>
+    </summary>
+    <div class="agent-step__body">
+      ${data.summary ? `<p class="agent-step__summary">${escapeHtml(data.summary)}</p>` : ''}
+      ${renderTraceDetails(data.details)}
+    </div>
+  `;
+  body.appendChild(step);
+
+  const count = body.querySelectorAll('.agent-step').length;
+  const countEl = group.querySelector('[data-agent-count]');
+  if (countEl) countEl.textContent = `${count} steps`;
+
+  agentTraceCount++;
+  const globalCount = document.getElementById('thinking-count');
+  if (globalCount) globalCount.textContent = `${agentTraceCount} 步`;
+  root.scrollTop = root.scrollHeight;
+}
+
+function traceStatus(status) {
+  if (status === 'completed') return 'completed';
+  if (status === 'failed' || status === 'error') return 'failed';
+  if (status === 'interrupted') return 'interrupted';
+  return 'running';
+}
+
+function renderTraceDetails(details = {}) {
+  if (!details || Object.keys(details).length === 0) return '';
+
+  if (Array.isArray(details.results)) {
+    return `
+      <div class="agent-step__section">搜索结果</div>
+      <ol class="agent-step__results">
+        ${details.results.map(r => `
+          <li>
+            <a href="${escapeAttr(r.url || '#')}" target="_blank" rel="noreferrer">${escapeHtml(r.title || r.url || 'Untitled')}</a>
+            ${r.snippet ? `<p>${escapeHtml(r.snippet)}</p>` : ''}
+          </li>
+        `).join('')}
+      </ol>
+      ${renderTraceJson(details)}
+    `;
+  }
+
+  if (Array.isArray(details.findings)) {
+    return `
+      <div class="agent-step__section">提交的发现</div>
+      <ul class="agent-step__findings">
+        ${details.findings.map(f => `
+          <li>
+            <strong>${escapeHtml(f.claim || '')}</strong>
+            <span>${escapeHtml(f.confidence || '')}</span>
+            ${f.source_url ? `<a href="${escapeAttr(f.source_url)}" target="_blank" rel="noreferrer">${escapeHtml(f.source_name || f.source_url)}</a>` : ''}
+          </li>
+        `).join('')}
+      </ul>
+      ${renderTraceJson(details)}
+    `;
+  }
+
+  return renderTraceJson(details);
+}
+
+function renderTraceJson(details) {
+  return `<pre class="agent-step__json">${escapeHtml(JSON.stringify(details, null, 2))}</pre>`;
 }
 
 function addTimeline(label, detail, source, status = 'running') {
@@ -781,4 +959,8 @@ function escapeHtml(str) {
   const div = document.createElement('div');
   div.textContent = str;
   return div.innerHTML;
+}
+
+function escapeAttr(str) {
+  return escapeHtml(str).replace(/"/g, '&quot;');
 }

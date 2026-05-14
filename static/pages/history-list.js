@@ -9,7 +9,8 @@ export async function renderHistoryList(container) {
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--space-4)">
       <h2>分析历史</h2>
       <div style="display:flex;gap:var(--space-2);align-items:center">
-        <button id="batch-export-btn" class="btn btn-sm" style="display:none" onclick="window._batchExport()">批量导出</button>
+        <button id="batch-delete-btn" class="ti-btn ti-btn--danger ti-btn--sm" type="button" style="display:none" onclick="window._batchDelete()">批量删除</button>
+        <button id="batch-export-btn" class="ti-btn ti-btn--secondary ti-btn--sm" type="button" style="display:none" onclick="window._batchExport()">批量导出</button>
         <input id="history-search" class="input" placeholder="搜索..." style="width:250px">
         <select id="history-filter-status" class="input" style="width:120px">
           <option value="">全部状态</option>
@@ -45,12 +46,13 @@ export async function renderHistoryList(container) {
 
   const renderList = (data) => {
     const list = document.getElementById('history-list');
+    _selectedIds = new Set();
+    _updateBatchBtn();
     if (!data.items.length) {
       list.innerHTML = '<div class="empty-state"><h3>暂无分析记录</h3><p>从工作区开始新的分析</p></div>';
       return;
     }
 
-    _selectedIds = new Set();
     list.innerHTML = `
       <div style="display:flex;align-items:center;gap:var(--space-2);padding:var(--space-2) 0;border-bottom:1px solid var(--border-hairline);font-size:var(--text-xs);color:var(--text-muted)">
         <input type="checkbox" id="select-all" onchange="window._toggleSelectAll(this.checked)">
@@ -60,7 +62,7 @@ export async function renderHistoryList(container) {
       ${data.items.map(item => `
         <div class="history-item" style="display:flex;gap:var(--space-2);align-items:flex-start">
           <input type="checkbox" class="batch-check" data-id="${item.id}" onchange="window._toggleSelect('${item.id}', this.checked)" style="margin-top:var(--space-3)">
-          <div style="flex:1;cursor:pointer" onclick="window._openHistory('${item.id}')">
+          <div style="flex:1;cursor:pointer" onclick="window._openHistory('${item.id}', '${item.status}')">
             <div class="history-item-header">
               <span class="history-item-query">${escapeHtml(item.query)}</span>
               <span>${statusBadge(item.status)}</span>
@@ -104,7 +106,14 @@ export async function renderHistoryList(container) {
     loadHistory(document.getElementById('history-search').value, e.target.value);
   });
 
-  window._openHistory = (id) => router.navigate(`/history/${id}`);
+  window._openHistory = (id, status = '') => {
+    if (status === 'running') {
+      sessionStorage.setItem('ti-active-task-id', id);
+      router.navigate('/');
+      return;
+    }
+    router.navigate(`/history/${id}`);
+  };
   window._deleteHistory = async (id) => {
     if (!confirm('确定删除此分析？')) return;
     try {
@@ -127,6 +136,30 @@ export async function renderHistoryList(container) {
   window._toggleSelect = (id, checked) => {
     _selectedIds[checked ? 'add' : 'delete'](id);
     _updateBatchBtn();
+  };
+
+  window._batchDelete = async () => {
+    const ids = [..._selectedIds];
+    if (ids.length === 0) return;
+    if (!confirm(`确定删除选中的 ${ids.length} 条历史记录？运行中的任务会被跳过。`)) return;
+
+    try {
+      const result = await API.batchDeleteHistory(ids);
+      const deletedCount = result.deleted?.length || 0;
+      if (deletedCount === ids.length) {
+        showToast(`已删除 ${deletedCount} 条历史记录`);
+      } else {
+        showToast(`已删除 ${deletedCount} 条历史记录，${ids.length - deletedCount} 条未删除`);
+      }
+      _selectedIds = new Set();
+      offset = 0;
+      await loadHistory(
+        document.getElementById('history-search').value,
+        document.getElementById('history-filter-status').value,
+      );
+    } catch (err) {
+      showToast(err.message || '批量删除失败', 'error');
+    }
   };
 
   window._batchExport = async () => {
@@ -158,10 +191,19 @@ export async function renderHistoryList(container) {
 }
 
 function _updateBatchBtn() {
-  const btn = document.getElementById('batch-export-btn');
+  const exportBtn = document.getElementById('batch-export-btn');
+  const deleteBtn = document.getElementById('batch-delete-btn');
   const cnt = document.getElementById('selected-count');
-  if (btn) btn.style.display = _selectedIds.size > 0 ? 'inline-flex' : 'none';
+  const selectAll = document.getElementById('select-all');
+  const checks = [...document.querySelectorAll('.batch-check')];
+  const visible = _selectedIds.size > 0 ? 'inline-flex' : 'none';
+  if (exportBtn) exportBtn.style.display = visible;
+  if (deleteBtn) deleteBtn.style.display = visible;
   if (cnt) cnt.textContent = _selectedIds.size > 0 ? `已选 ${_selectedIds.size} 条` : '';
+  if (selectAll) {
+    selectAll.checked = checks.length > 0 && checks.every(cb => cb.checked);
+    selectAll.indeterminate = checks.some(cb => cb.checked) && !selectAll.checked;
+  }
 }
 
 function escapeHtml(str) {

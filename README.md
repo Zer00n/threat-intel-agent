@@ -120,10 +120,26 @@ ANTHROPIC_BASE_URL=https://api.siliconflow.cn/v1
 ANTHROPIC_MODEL=deepseek-ai/DeepSeek-V3.2
 API_FORMAT=openai
 
+# 可选 - 出站代理（支持 http://、https://、socks5://）
+# 留空表示不使用代理；如使用 SOCKS5，默认依赖已包含 httpx[socks]
+HTTP_PROXY=socks5://127.0.0.1:7890
+
 # 可选 - 数据源增强
 NVD_API_KEY=        # 提升 NVD 限流额度
 GITHUB_TOKEN=       # 启用 GitHub Advisory 查询
 ```
+
+### 代理配置
+
+如果需要通过本地代理访问 LLM API、DuckDuckGo 搜索或外部情报源，在 `.env` 中设置 `HTTP_PROXY` 即可：
+
+```bash
+HTTP_PROXY=http://127.0.0.1:7890
+# 或
+HTTP_PROXY=socks5://127.0.0.1:7890
+```
+
+`requirements.txt` 和 `pyproject.toml` 已使用 `httpx[socks]>=0.27`，因此重新执行 `pip install -r requirements.txt` 后即可支持 SOCKS 代理；不需要额外手动安装 `socksio`。
 
 ### 支持的 API 格式
 

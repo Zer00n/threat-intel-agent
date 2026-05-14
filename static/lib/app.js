@@ -34,6 +34,7 @@ function setBreadcrumb(html) {
 
 // Remove workspace class when leaving workspace page
 function clearPageClass() {
+  window._suspendWorkspace?.();
   document.body.classList.remove('page-workspace');
 }
 
