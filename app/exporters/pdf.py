@@ -195,7 +195,7 @@ def _build_styles() -> dict:
         "code_block": ParagraphStyle(
             "code_block",
             parent=base["Code"],
-            fontName="Courier",
+            fontName=_CJK,
             fontSize=8.5,
             textColor=_h(51, 51, 51),
             backColor=_h(245, 245, 245),
@@ -352,7 +352,7 @@ def _inline_md(text: str) -> str:
     text = re.sub(r"__(.+?)__", r"<b>\1</b>", text)
     text = re.sub(r"\*(.+?)\*", r"<i>\1</i>", text)
     text = re.sub(r"_(.+?)_", r"<i>\1</i>", text)
-    text = re.sub(r"`(.+?)`", r'<font face="Courier" color="#c0392b">\1</font>', text)
+    text = re.sub(r"`(.+?)`", r'<font color="#c0392b">\1</font>', text)
     text = re.sub(r"\[(.+?)\]\((.+?)\)", r'<a href="\2" color="#2563EB">\1</a>', text)
     return text
 
