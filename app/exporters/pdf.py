@@ -1,7 +1,9 @@
-"""PDF export using reportlab (pure Python with built-in CJK font support)."""
+"""PDF export using reportlab with Noto Sans SC CJK font."""
 from __future__ import annotations
 
+import os
 import re
+import urllib.request
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
@@ -16,17 +18,40 @@ from reportlab.platypus import (
     PageBreak,
 )
 from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.cidfonts import UnicodeCIDFont
+from reportlab.pdfbase.ttfonts import TTFont
 
+from app.config import settings
 from app.db.models import Analysis
 from app.utils.slug import slugify
 from app.utils.time import now_iso
 
-# Register built-in CJK font
-pdfmetrics.registerFont(UnicodeCIDFont("STSong-Light"))
+# CJK font path and download URL
+_FONT_DIR = os.path.join(settings.data_dir, "fonts")
+_FONT_FILE = os.path.join(_FONT_DIR, "NotoSansSC-Regular.ttf")
+_FONT_URL = "https://fonts.gstatic.com/s/notosanssc/v40/k3kCo84MPvpLmixcA63oeAL7Iqp5IZJF9bmaG9_FnYw.ttf"
+_FONT_NAME = "NotoSansSC"
 
-_CJK = "STSong-Light"
-_SANS = "Helvetica"
+
+def _ensure_font() -> str:
+    """Download CJK font on first use if not present."""
+    if os.path.exists(_FONT_FILE):
+        return _FONT_FILE
+    os.makedirs(_FONT_DIR, exist_ok=True)
+    proxy_url = os.environ.get("HTTP_PROXY") or os.environ.get("http_proxy")
+    if proxy_url:
+        proxy_handler = urllib.request.ProxyHandler({"http": proxy_url, "https": proxy_url})
+        opener = urllib.request.build_opener(proxy_handler)
+    else:
+        opener = urllib.request.build_opener()
+    opener.retrieve(_FONT_URL, _FONT_FILE)
+    return _FONT_FILE
+
+
+# Register CJK font
+_font_path = _ensure_font()
+pdfmetrics.registerFont(TTFont(_FONT_NAME, _font_path))
+
+_CJK = _FONT_NAME
 
 
 def _h(r: int, g: int, b: int) -> colors.Color:

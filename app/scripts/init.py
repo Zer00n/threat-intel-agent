@@ -46,6 +46,11 @@ async def main() -> None:
     # Download ATT&CK bundle
     await download_attck_bundle(settings.attck_bundle_file)
 
+    # Download CJK font for PDF export
+    from app.exporters.pdf import _ensure_font
+    _ensure_font()
+    print("CJK font ready.")
+
     async with engine.begin() as conn:
         await ensure_fts_schema(conn)
     print("FTS5 virtual table and triggers created.")
