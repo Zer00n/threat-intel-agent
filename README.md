@@ -39,6 +39,18 @@ uvicorn app.main:app --host 127.0.0.1 --port 8000
 
 浏览器访问 <http://127.0.0.1:8000>
 
+## 推荐模型
+
+建议使用 **DeepSeek V4 Flash** 作为 LLM 后端，具有极高的性价比（¥1/百万输入 token，¥2/百万输出 token），1M 上下文窗口足以支撑威胁情报分析的深度推理。
+
+配置示例（通过硅基流动等 OpenAI 兼容平台）：
+
+```bash
+ANTHROPIC_BASE_URL=https://api.siliconflow.cn/v1
+ANTHROPIC_MODEL=deepseek-ai/deepseek-v4-flash
+API_FORMAT=openai
+```
+
 ## 核心功能
 
 - **意图识别**：正则优先 + LLM 兜底，支持 CVE、ATT&CK、APT、IOC 等查询
@@ -115,9 +127,9 @@ docs/              # 文档（架构图、截图、开发进度）
 # 必填
 ANTHROPIC_API_KEY=sk-xxx
 
-# 可选 - 第三方 API（硅基流动等）
+# 推荐 - DeepSeek V4 Flash（硅基流动等 OpenAI 兼容平台）
 ANTHROPIC_BASE_URL=https://api.siliconflow.cn/v1
-ANTHROPIC_MODEL=deepseek-ai/DeepSeek-V3.2
+ANTHROPIC_MODEL=deepseek-ai/deepseek-v4-flash
 API_FORMAT=openai
 
 # 可选 - 出站代理（支持 http://、https://、socks5://）

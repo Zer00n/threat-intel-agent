@@ -75,7 +75,7 @@ async def start_analysis(req: AnalyzeRequest, db: AsyncSession = Depends(get_db)
     from app.db.models import TokenUsageMonthly
     from datetime import datetime, timezone
 
-    monthly_budget = float(await get_setting(db, "monthly_budget_usd") or settings.monthly_budget_usd)
+    monthly_budget = float(await get_setting(db, "monthly_budget_usd") or settings.monthly_budget_cny)
     current_month = datetime.now(timezone.utc).strftime("%Y-%m")
     result = await db.execute(
         select(TokenUsageMonthly).where(TokenUsageMonthly.year_month == current_month)
@@ -84,7 +84,7 @@ async def start_analysis(req: AnalyzeRequest, db: AsyncSession = Depends(get_db)
     if monthly_usage and monthly_usage.total_cost_usd >= monthly_budget:
         raise HTTPException(
             status_code=402,
-            detail=f"Monthly budget exceeded: ${monthly_usage.total_cost_usd:.2f} / ${monthly_budget:.2f}"
+            detail=f"月度预算已超出：¥{monthly_usage.total_cost_usd:.2f} / ¥{monthly_budget:.2f}"
         )
 
     # Sanitize query

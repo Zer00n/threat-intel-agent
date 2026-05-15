@@ -304,47 +304,8 @@ def _calc_cost(input_tokens: int, output_tokens: int, model: str) -> float:
     """
     计算 API 调用费用，单位：人民币元（CNY）。
 
-    DeepSeek V3 Flash（deepseek-chat-v3-5 / deepseek-v3-flash）:
-      - 输入（缓存命中）：0.02 元 / 百万 tokens
-      - 输入（缓存未命中）：1 元 / 百万 tokens
+    统一按 DeepSeek V4 Flash 价格估算（适用于所有模型）：
+      - 输入：1 元 / 百万 tokens
       - 输出：2 元 / 百万 tokens
-
-    DeepSeek V3 Pro（deepseek-v3 / deepseek-chat）:
-      - 输入（缓存命中）：0.1 元 / 百万 tokens
-      - 输入（缓存未命中）：2 元 / 百万 tokens
-      - 输出：8 元 / 百万 tokens
-
-    注意：API 通常不区分缓存命中/未命中，此处按缓存未命中（最高价）保守估算。
-    如需精确计费，需解析 API 返回的 cache_read_input_tokens 字段。
     """
-    model_lower = model.lower()
-
-    # DeepSeek V3 Flash
-    if any(k in model_lower for k in ("v3-5", "v3-flash", "chat-v3-5", "deepseek-chat-v3")):
-        # 保守估算：全部按缓存未命中价格
-        input_cost = input_tokens * 1.0 / 1_000_000
-        output_cost = output_tokens * 2.0 / 1_000_000
-        return input_cost + output_cost
-
-    # DeepSeek V3 Pro
-    if any(k in model_lower for k in ("deepseek-v3", "deepseek-chat", "v3-pro")):
-        input_cost = input_tokens * 2.0 / 1_000_000
-        output_cost = output_tokens * 8.0 / 1_000_000
-        return input_cost + output_cost
-
-    # 其他 DeepSeek 模型（R1 等）按 Flash 价格兜底
-    if "deepseek" in model_lower:
-        input_cost = input_tokens * 1.0 / 1_000_000
-        output_cost = output_tokens * 2.0 / 1_000_000
-        return input_cost + output_cost
-
-    # 非 DeepSeek 模型：按 USD 计算后转换为 CNY（汇率 7.2）
-    if "opus" in model_lower:
-        usd = (input_tokens * 15 + output_tokens * 75) / 1_000_000
-    elif "sonnet" in model_lower:
-        usd = (input_tokens * 3 + output_tokens * 15) / 1_000_000
-    elif "haiku" in model_lower:
-        usd = (input_tokens * 0.25 + output_tokens * 1.25) / 1_000_000
-    else:
-        usd = (input_tokens * 3 + output_tokens * 15) / 1_000_000
-    return usd * 7.2
+    return (input_tokens * 1.0 + output_tokens * 2.0) / 1_000_000

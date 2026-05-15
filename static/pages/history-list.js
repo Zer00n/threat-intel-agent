@@ -6,13 +6,14 @@ let _selectedIds = new Set();
 
 export async function renderHistoryList(container) {
   container.innerHTML = `
+    <div class="page-content">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--space-4)">
       <h2>分析历史</h2>
       <div style="display:flex;gap:var(--space-2);align-items:center">
         <button id="batch-delete-btn" class="ti-btn ti-btn--danger ti-btn--sm" type="button" style="display:none" onclick="window._batchDelete()">批量删除</button>
         <button id="batch-export-btn" class="ti-btn ti-btn--secondary ti-btn--sm" type="button" style="display:none" onclick="window._batchExport()">批量导出</button>
-        <input id="history-search" class="input" placeholder="搜索..." style="width:250px">
-        <select id="history-filter-status" class="input" style="width:120px">
+        <input id="history-search" class="ti-input" placeholder="搜索..." style="width:220px">
+        <select id="history-filter-status" class="ti-select" style="width:120px">
           <option value="">全部状态</option>
           <option value="completed">已完成</option>
           <option value="failed">失败</option>
@@ -20,12 +21,13 @@ export async function renderHistoryList(container) {
         </select>
       </div>
     </div>
-    <div id="history-list" class="history-list">
-      <div class="skeleton" style="height:60px;margin-bottom:8px"></div>
-      <div class="skeleton" style="height:60px;margin-bottom:8px"></div>
-      <div class="skeleton" style="height:60px"></div>
+    <div id="history-list">
+      <div class="skeleton" style="height:56px;margin-bottom:8px"></div>
+      <div class="skeleton" style="height:56px;margin-bottom:8px"></div>
+      <div class="skeleton" style="height:56px"></div>
     </div>
     <div id="history-pagination" style="display:flex;justify-content:center;gap:var(--space-2);margin-top:var(--space-4)"></div>
+    </div>
   `;
 
   let offset = 0;
@@ -59,25 +61,7 @@ export async function renderHistoryList(container) {
         <span>全选</span>
         <span id="selected-count"></span>
       </div>
-      ${data.items.map(item => `
-        <div class="history-item" style="display:flex;gap:var(--space-2);align-items:flex-start">
-          <input type="checkbox" class="batch-check" data-id="${item.id}" onchange="window._toggleSelect('${item.id}', this.checked)" style="margin-top:var(--space-3)">
-          <div style="flex:1;cursor:pointer" onclick="window._openHistory('${item.id}', '${item.status}')">
-            <div class="history-item-header">
-              <span class="history-item-query">${escapeHtml(item.query)}</span>
-              <span>${statusBadge(item.status)}</span>
-            </div>
-            <div class="history-item-meta">
-              ${item.intent ? `<span class="badge badge-info">${item.intent}</span>` : ''}
-              ${tlpBadge(item.tlp)}
-              ${item.overall_confidence ? `<span>置信度：${item.overall_confidence}</span>` : ''}
-              <span>${formatDate(item.created_at)}</span>
-              ${item.duration_s ? `<span>${item.duration_s}秒</span>` : ''}
-              ${item.cost_usd ? `<span>$${item.cost_usd.toFixed(2)}</span>` : ''}
-            </div>
-          </div>
-        </div>
-      `).join('')}
+      ${data.items.map(item => _renderItem(item)).join('')}
     `;
 
     // Pagination
@@ -88,7 +72,7 @@ export async function renderHistoryList(container) {
     if (totalPages > 1) {
       for (let i = 1; i <= Math.min(totalPages, 10); i++) {
         const btn = document.createElement('button');
-        btn.className = `btn btn-sm ${i === currentPage ? 'btn-primary' : ''}`;
+        btn.className = `ti-btn ti-btn--sm ${i === currentPage ? 'ti-btn--primary' : 'ti-btn--secondary'}`;
         btn.textContent = i;
         btn.onclick = () => { offset = (i - 1) * limit; loadHistory(); };
         pagination.appendChild(btn);
@@ -188,6 +172,46 @@ export async function renderHistoryList(container) {
   };
 
   await loadHistory();
+}
+
+function _renderItem(item) {
+  const statusCls = item.status === 'completed' ? 'completed'
+    : item.status === 'failed' ? 'failed'
+    : item.status === 'stopped' ? 'interrupted'
+    : item.status === 'running' ? 'running'
+    : 'waiting';
+
+  const metaParts = [
+    item.intent ? `<span class="ti-badge ti-badge--info">${item.intent}</span>` : '',
+    tlpBadge(item.tlp),
+    item.overall_confidence ? `<span style="font-size:var(--text-xs);color:var(--text-secondary)">置信度：${item.overall_confidence}</span>` : '',
+    `<span style="font-size:var(--text-xs);color:var(--text-muted)">${formatDate(item.created_at)}</span>`,
+    item.duration_s ? `<span style="font-size:var(--text-xs);color:var(--text-muted)">${item.duration_s}秒</span>` : '',
+    item.cost_usd ? `<span style="font-size:var(--text-xs);color:var(--text-muted)">¥${item.cost_usd.toFixed(4)}</span>` : '',
+  ].filter(Boolean).join('');
+
+  return `
+    <div class="source-card" style="cursor:pointer;gap:var(--space-3)" onclick="window._toggleSelect('${item.id}', this.querySelector('.batch-check').checked = !this.querySelector('.batch-check').checked)">
+      <div class="source-info" style="flex:1;min-width:0">
+        <input type="checkbox" class="batch-check" data-id="${item.id}" onclick="event.stopPropagation();window._toggleSelect('${item.id}', this.checked)" style="flex-shrink:0">
+        <span class="ti-status-dot ti-status-dot--${statusCls}"></span>
+        <div style="min-width:0">
+          <div style="font-weight:600;font-size:var(--text-sm);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(item.query)}</div>
+          <div style="display:flex;gap:var(--space-2);flex-wrap:wrap;align-items:center;margin-top:var(--space-1)">
+            ${metaParts}
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;gap:var(--space-2);align-items:center;flex-shrink:0">
+        <span class="ti-badge ti-badge--${statusCls === 'completed' ? 'success' : statusCls === 'failed' ? 'error' : statusCls === 'running' ? 'info' : 'warning'}">${statusLabel(item.status)}</span>
+      </div>
+    </div>
+  `;
+}
+
+function statusLabel(status) {
+  const map = { running: '运行中', completed: '已完成', failed: '失败', stopped: '已停止', timeout: '超时', budget_exceeded: '预算超限' };
+  return map[status] || status;
 }
 
 function _updateBatchBtn() {

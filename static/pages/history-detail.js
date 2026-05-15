@@ -88,7 +88,7 @@ function renderDetail(container, data) {
             </button>
             <span class="ti-text-muted" style="font-size: var(--text-xs); margin-left: var(--space-2);">
               ${data.token_input ? `令牌：${data.token_input} 入 / ${data.token_output} 出` : ''}
-              ${data.cost_usd ? ` · 费用：$${data.cost_usd.toFixed(2)}` : ''}
+              ${data.cost_usd ? ` · 费用：¥${data.cost_usd.toFixed(4)}` : ''}
             </span>
           </div>
           <div class="report-footer__right">
