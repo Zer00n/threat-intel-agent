@@ -1,5 +1,5 @@
 import API from '../lib/api.js';
-import { formatDate, formatDuration, statusBadge, confidenceBadge, tlpBadge, iocChip, copyToClipboard, showToast } from '../lib/utils.js';
+import { formatDate, formatDuration, statusBadge, confidenceBadge, tlpBadge, iocChip, copyToClipboard, showToast, defang } from '../lib/utils.js';
 import { getTechniqueNameZh, getTacticNameZh } from '../lib/attck-i18n.js';
 
 export async function renderHistoryDetail(container, id) {
@@ -206,15 +206,83 @@ function renderReportTab(data) {
   const panel = document.querySelector('[data-panel="report"]');
   if (!panel) return;
 
-  if (data.report_md) {
-    try {
-      panel.innerHTML = `<article class="md">${marked.parse(data.report_md, { breaks: true })}</article>`;
-    } catch {
-      panel.innerHTML = `<pre style="white-space:pre-wrap">${data.report_md}</pre>`;
-    }
-  } else {
+  if (!data.report_md) {
     panel.innerHTML = '<div class="empty-state"><p>未生成报告</p></div>';
+    return;
   }
+
+  try {
+    panel.innerHTML = `<article class="md">${marked.parse(data.report_md, { breaks: true })}</article>`;
+  } catch {
+    panel.innerHTML = `<pre style="white-space:pre-wrap">${data.report_md}</pre>`;
+    return;
+  }
+
+  const article = panel.querySelector('.md');
+  const headings = article.querySelectorAll('h2');
+  if (headings.length < 2) return;
+
+  const tocItems = [];
+  headings.forEach((h, i) => {
+    const id = `sec-${i}`;
+    h.id = id;
+    tocItems.push({ id, text: h.textContent.trim() });
+  });
+
+  // Wrap article in flex layout
+  const layout = document.createElement('div');
+  layout.className = 'report-layout';
+  article.parentNode.insertBefore(layout, article);
+  layout.appendChild(article);
+
+  // Build TOC sidebar
+  const toc = document.createElement('nav');
+  toc.className = 'report-toc';
+  toc.setAttribute('aria-label', '报告目录');
+  toc.innerHTML = `
+    <div class="report-toc__title">目录</div>
+    <ul class="report-toc__list">
+      ${tocItems.map((item, i) => `
+        <li class="report-toc__item${i === 0 ? ' report-toc__item--active' : ''}">
+          <a href="#${item.id}" class="report-toc__link" title="${escapeAttr(item.text)}">${escapeHtml(item.text)}</a>
+        </li>
+      `).join('')}
+    </ul>
+  `;
+  layout.appendChild(toc);
+
+  // Smooth scroll on click
+  toc.addEventListener('click', (e) => {
+    const link = e.target.closest('.report-toc__link');
+    if (!link) return;
+    e.preventDefault();
+    const target = document.getElementById(link.getAttribute('href').slice(1));
+    if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+
+  // Track active section via IntersectionObserver
+  const tabpanels = document.querySelector('.tabpanels');
+  const items = toc.querySelectorAll('.report-toc__item');
+  const observer = new IntersectionObserver((entries) => {
+    for (const entry of entries) {
+      if (entry.isIntersecting) {
+        items.forEach(li => li.classList.remove('report-toc__item--active'));
+        const idx = tocItems.findIndex(t => t.id === entry.target.id);
+        if (idx >= 0) items[idx]?.classList.add('report-toc__item--active');
+        break;
+      }
+    }
+  }, { root: tabpanels, rootMargin: '-5% 0px -85% 0px', threshold: 0 });
+
+  headings.forEach(h => observer.observe(h));
+
+  // Disconnect observer when panel is re-rendered
+  new MutationObserver((_, obs) => {
+    if (!panel.contains(layout)) {
+      observer.disconnect();
+      obs.disconnect();
+    }
+  }).observe(panel, { childList: true });
 }
 
 function renderIOCSTab(data) {
@@ -232,29 +300,33 @@ function renderIOCSTab(data) {
     grouped[ioc.ioc_type].push(ioc);
   });
 
+  const types = Object.keys(grouped);
+  let defangOn = true;
+
+  const chipCls = t => t === 'ipv4' || t === 'ipv6' ? 'ipv4' : t === 'domain' ? 'domain' : t === 'url' ? 'url' : 'hash';
+  const chipIco = t => t === 'ipv4' || t === 'ipv6' ? 'IP' : t === 'domain' ? 'DN' : t === 'url' ? 'UR' : '#';
+
   panel.innerHTML = `
     <div class="ioc-toolbar">
       <div class="ioc-toolbar__group">
         <span class="ioc-toolbar__label">类型</span>
-        <span class="filter-chip" data-active style="display:inline-flex;align-items:center;gap:4px;height:22px;padding:0 var(--space-2);font-size:var(--text-xs);background:var(--accent-soft-bg);color:var(--accent-soft-fg);border-radius:var(--radius-sm);border:1px solid transparent;">
-          全部 ${data.iocs.length}
-        </span>
-        ${Object.entries(grouped).map(([type, iocs]) => `
-          <button class="ti-btn ti-btn--secondary ti-btn--sm">${type.toUpperCase()} · ${iocs.length}</button>
+        <button class="ioc-filter" data-active data-type="all">全部 ${data.iocs.length}</button>
+        ${types.map(t => `
+          <button class="ioc-filter" data-type="${t}">${t.toUpperCase()} · ${grouped[t].length}</button>
         `).join('')}
       </div>
       <div class="ioc-toolbar__group">
         <span class="ioc-toolbar__label">Defang</span>
         <label class="switch"><input type="checkbox" id="defang-toggle" checked /><span class="switch__slider"></span></label>
-        <button class="ti-btn ti-btn--ghost ti-btn--sm" onclick="window._copyAllIOCs()">复制全部</button>
+        <button class="ti-btn ti-btn--ghost ti-btn--sm" id="copy-all-iocs">复制全部</button>
       </div>
     </div>
     ${Object.entries(grouped).map(([type, iocs]) => `
-      <div class="ioc-group">
+      <div class="ioc-group" data-ioc-type="${type}">
         <div class="ioc-group__head">
           <div class="ioc-group__type">
-            <span class="ti-chip ti-chip--${type === 'ipv4' || type === 'ipv6' ? 'ipv4' : type === 'domain' ? 'domain' : type === 'url' ? 'url' : 'hash'}">
-              <span class="ti-chip__icon">${type === 'ipv4' || type === 'ipv6' ? 'IP' : type === 'domain' ? 'DN' : type === 'url' ? 'UR' : '#'}</span>
+            <span class="ti-chip ti-chip--${chipCls(type)}">
+              <span class="ti-chip__icon">${chipIco(type)}</span>
             </span>
             ${type.toUpperCase()}
           </div>
@@ -262,12 +334,14 @@ function renderIOCSTab(data) {
         </div>
         ${iocs.map(ioc => `
           <div class="ioc-row">
-            <span class="ioc-row__value">${escapeHtml(ioc.value)}</span>
-            <span class="ioc-row__defanged">${escapeHtml(ioc.value_defanged)}</span>
+            <span class="ioc-row__value"
+                  data-original="${escapeAttr(ioc.value)}"
+                  data-defanged="${escapeAttr(ioc.value_defanged || defang(ioc.value, ioc.ioc_type))}"
+            >${escapeHtml(ioc.value_defanged || defang(ioc.value, ioc.ioc_type))}</span>
             <span>${confidenceBadge(ioc.confidence)}</span>
             <span class="ioc-row__context">${escapeHtml(ioc.context || '')}</span>
             <span class="ioc-row__actions">
-              <button class="ti-btn ti-btn--ghost ti-btn--sm" onclick="copyToClipboard('${escapeHtml(ioc.value)}')">复制</button>
+              <button class="ti-btn ti-btn--ghost ti-btn--sm ioc-copy-btn">复制</button>
             </span>
           </div>
         `).join('')}
@@ -275,10 +349,44 @@ function renderIOCSTab(data) {
     `).join('')}
   `;
 
-  window._copyAllIOCs = () => {
-    const text = data.iocs.map(i => `${i.ioc_type},${i.value_defanged}`).join('\n');
+  // Type filter
+  panel.querySelectorAll('.ioc-filter').forEach(btn => {
+    btn.addEventListener('click', () => {
+      panel.querySelectorAll('.ioc-filter').forEach(b => b.removeAttribute('data-active'));
+      btn.setAttribute('data-active', '');
+      const t = btn.dataset.type;
+      panel.querySelectorAll('.ioc-group').forEach(g => {
+        g.style.display = (t === 'all' || g.dataset.iocType === t) ? '' : 'none';
+      });
+    });
+  });
+
+  // DEFANG toggle: switch displayed values
+  document.getElementById('defang-toggle')?.addEventListener('change', (e) => {
+    defangOn = e.target.checked;
+    panel.querySelectorAll('.ioc-row__value').forEach(el => {
+      el.textContent = defangOn ? el.dataset.defanged : el.dataset.original;
+    });
+  });
+
+  // Copy individual IOC (event delegation)
+  panel.addEventListener('click', (e) => {
+    if (!e.target.closest('.ioc-copy-btn')) return;
+    const row = e.target.closest('.ioc-row');
+    const valueEl = row?.querySelector('.ioc-row__value');
+    if (valueEl) copyToClipboard(valueEl.textContent);
+  });
+
+  // Copy all — respects current filter and defang state
+  document.getElementById('copy-all-iocs')?.addEventListener('click', () => {
+    const activeType = panel.querySelector('.ioc-filter[data-active]')?.dataset.type || 'all';
+    const iocs = activeType === 'all' ? data.iocs : (grouped[activeType] || []);
+    const text = iocs.map(i => {
+      const val = defangOn ? (i.value_defanged || defang(i.value, i.ioc_type)) : i.value;
+      return `${i.ioc_type},${val}`;
+    }).join('\n');
     copyToClipboard(text);
-  };
+  });
 }
 
 function renderTechniquesTab(data) {

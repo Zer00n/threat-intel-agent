@@ -71,7 +71,17 @@ export function showToast(message, type = 'success') {
 
 export async function copyToClipboard(text) {
   try {
-    await navigator.clipboard.writeText(text);
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+    } else {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.cssText = 'position:fixed;opacity:0;left:-9999px';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    }
     showToast('已复制到剪贴板');
   } catch {
     showToast('复制失败', 'error');
