@@ -542,7 +542,6 @@ threat-intel-agent/
 │   └── pages/                 # 页面组件
 ├── templates/pdf/             # PDF HTML 模板
 ├── tests/                     # 测试
-├── docs/                      # 文档和截图
 └── start.bat                  # Windows 一键启动
 ```
 
