@@ -10,7 +10,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
 from app.db.engine import close_db, init_db
-from app.routers import analyze, export, history, settings as settings_router, sources, stream, system
+from app.routers import analyze, assets, export, history, settings as settings_router, sources, stream, system
 
 logger = structlog.get_logger()
 
@@ -80,6 +80,7 @@ app.add_middleware(
 app.include_router(system.router)
 app.include_router(sources.router)
 app.include_router(analyze.router)
+app.include_router(assets.router)
 app.include_router(stream.router)
 app.include_router(history.router)
 app.include_router(export.router)

@@ -28,6 +28,19 @@ const API = {
     return resp.json();
   },
 
+  async patch(path, body) {
+    const resp = await fetch(path, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      throw new Error(err.detail || `PATCH ${path}: ${resp.status}`);
+    }
+    return resp.json();
+  },
+
   async del(path) {
     const resp = await fetch(path, { method: 'DELETE' });
     if (!resp.ok) throw new Error(`DELETE ${path}: ${resp.status}`);
@@ -53,6 +66,31 @@ const API = {
   batchDeleteHistory: (ids) => API.post('/history/batch_delete', { ids }),
 
   sourcesHealth: () => API.get('/sources/health'),
+
+  assetSpaces: () => API.get('/api/asset-spaces'),
+
+  createAssetSpace: (data) => API.post('/api/asset-spaces', data),
+
+  analyzeAssetSpace: (spaceId) => API.post(`/api/asset-spaces/${spaceId}/analyze`),
+
+  assets: (params = {}) => {
+    const q = new URLSearchParams(params).toString();
+    return API.get(`/api/assets${q ? '?' + q : ''}`);
+  },
+
+  assetDetail: (id) => API.get(`/api/assets/${id}`),
+
+  importAssetsCsvText: (data) => API.post('/api/assets/import/csv-text', data),
+
+  importAssetsJsonText: (data) => API.post('/api/assets/import/json-text', data),
+
+  importAssetsNmapText: (data) => API.post('/api/assets/import/nmap-text', data),
+
+  identifyService: (hostId, serviceId) => API.post(`/api/assets/${hostId}/services/${serviceId}/identify`),
+
+  identifyHost: (hostId) => API.post(`/api/assets/${hostId}/identify`),
+
+  updateAssetCveMatch: (matchId, data) => API.patch(`/api/asset-cve-matches/${matchId}`, data),
 
   testSource: (name) => API.post(`/sources/test/${name}`),
 
