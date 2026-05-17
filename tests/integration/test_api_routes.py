@@ -413,6 +413,40 @@ class TestAssetRoutes:
         assert detail["cve_refs"]
 
     @pytest.mark.asyncio
+    async def test_manual_create_asset_and_detail(self, client):
+        ip = f"192.168.55.{int(uuid.uuid4().hex[:2], 16)}"
+        resp = await client.post("/api/assets", json={
+            "space_id": "default",
+            "ip": ip,
+            "hostname": "manual-web",
+            "os_name": "Ubuntu",
+            "os_version": "22.04",
+            "environment": "prod",
+            "criticality": "high",
+            "owner": "secops",
+            "tags": ["manual", "web"],
+            "notes": "Manual asset test",
+            "product": "apache",
+            "version": "2.4.49",
+            "vendor": "apache",
+            "cpe": "cpe:2.3:a:apache:http_server:2.4.49:*:*:*:*:*:*:*",
+            "raw_banner": "Apache httpd 2.4.49",
+            "port": 443,
+            "protocol": "tcp",
+            "exposure_scope": "public",
+        })
+        assert resp.status_code == 200
+        host = resp.json()
+        assert host["ip"] == ip
+        assert host["source"] == "manual"
+        assert host["services"][0]["cpe_confidence"] == "high"
+        assert host["services"][0]["exposures"][0]["port"] == 443
+
+        resp = await client.get("/api/assets", params={"space_id": "default", "search": ip})
+        assert resp.status_code == 200
+        assert resp.json()["items"][0]["hostname"] == "manual-web"
+
+    @pytest.mark.asyncio
     async def test_import_csv_and_list_assets(self, client):
         ip = f"192.168.51.{int(uuid.uuid4().hex[:2], 16)}"
         csv_content = (

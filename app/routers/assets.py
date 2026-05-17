@@ -15,6 +15,7 @@ from app.assets.space_analysis import analyze_asset_space
 from app.db.models import AssetCVEMatch, AssetSpace, Host
 from app.deps import get_db
 from app.schemas.assets import (
+    AssetManualCreate,
     AssetImportTextRequest,
     AssetSpaceCreate,
     AssetSpaceOut,
@@ -124,6 +125,50 @@ async def list_assets(
         )
     except KeyError:
         raise HTTPException(status_code=404, detail="Asset not found")
+
+
+@router.post("/assets")
+async def create_asset(req: AssetManualCreate, db: AsyncSession = Depends(get_db)):
+    if not req.ip and not req.hostname:
+        raise HTTPException(status_code=422, detail="IP or hostname is required")
+    if req.protocol not in {"tcp", "udp"}:
+        raise HTTPException(status_code=422, detail="Unsupported protocol")
+    if req.environment not in {"prod", "test", "dev", "unknown"}:
+        raise HTTPException(status_code=422, detail="Unsupported environment")
+    if req.criticality not in {"high", "medium", "low"}:
+        raise HTTPException(status_code=422, detail="Unsupported criticality")
+    if req.exposure_scope not in {"public", "internal", "isolated", "unknown"}:
+        raise HTTPException(status_code=422, detail="Unsupported exposure scope")
+    if not await db.get(AssetSpace, req.space_id):
+        raise HTTPException(status_code=404, detail="Asset space not found")
+
+    await AssetRepository(db).upsert_asset_row(req.space_id, {
+        "ip": _blank_to_none(req.ip),
+        "hostname": _blank_to_none(req.hostname),
+        "os_name": _blank_to_none(req.os_name),
+        "os_version": _blank_to_none(req.os_version),
+        "environment": req.environment,
+        "criticality": req.criticality,
+        "owner": _blank_to_none(req.owner),
+        "tags": req.tags,
+        "notes": _blank_to_none(req.notes),
+        "product": req.product.strip(),
+        "version": _blank_to_none(req.version),
+        "vendor": _blank_to_none(req.vendor),
+        "provided_cpe": _blank_to_none(req.cpe),
+        "raw_banner": _blank_to_none(req.raw_banner),
+        "port": req.port,
+        "protocol": req.protocol,
+        "exposure_scope": req.exposure_scope,
+        "source": "manual",
+        "detection_method": "manual",
+    })
+    await db.commit()
+
+    host = await AssetRepository(db)._find_host(req.space_id, _blank_to_none(req.ip), _blank_to_none(req.hostname))
+    if not host:
+        raise HTTPException(status_code=500, detail="Asset was not created")
+    return await AssetRepository(db).host_detail(host.id)
 
 
 @router.get("/assets/{host_id}")
@@ -242,3 +287,10 @@ def _space_out(space: AssetSpace, summary: dict) -> AssetSpaceOut:
         asset_count=summary["asset_count"],
         risk_summary=summary["risk_summary"],
     )
+
+
+def _blank_to_none(value: str | None) -> str | None:
+    if value is None:
+        return None
+    value = value.strip()
+    return value or None

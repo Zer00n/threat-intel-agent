@@ -80,6 +80,8 @@ const API = {
 
   assetDetail: (id) => API.get(`/api/assets/${id}`),
 
+  createAsset: (data) => API.post('/api/assets', data),
+
   importAssetsCsvText: (data) => API.post('/api/assets/import/csv-text', data),
 
   importAssetsJsonText: (data) => API.post('/api/assets/import/json-text', data),

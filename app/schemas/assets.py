@@ -37,6 +37,27 @@ class HostPatch(BaseModel):
     notes: str | None = None
 
 
+class AssetManualCreate(BaseModel):
+    space_id: str = "default"
+    ip: str | None = None
+    hostname: str | None = None
+    os_name: str | None = None
+    os_version: str | None = None
+    environment: str = "unknown"
+    criticality: str = "medium"
+    owner: str | None = None
+    tags: list[str] = Field(default_factory=list)
+    notes: str | None = None
+    product: str = Field(..., min_length=1, max_length=128)
+    version: str | None = None
+    vendor: str | None = None
+    cpe: str | None = None
+    raw_banner: str | None = None
+    port: int = Field(..., ge=1, le=65535)
+    protocol: str = "tcp"
+    exposure_scope: str = "unknown"
+
+
 class ServicePatch(BaseModel):
     cpe: str | None = None
     cpe_confidence: str | None = None
@@ -65,4 +86,3 @@ class AssetImportSummary(BaseModel):
 class CVEMatchStatusPatch(BaseModel):
     status: str
     user_notes: str | None = None
-

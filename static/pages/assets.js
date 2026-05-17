@@ -18,6 +18,7 @@ export async function renderAssets(container) {
         <div style="display:flex;gap:var(--space-2);align-items:center">
           <select class="ti-select" id="asset-space-select" style="width:190px"></select>
           <button class="ti-btn ti-btn--secondary ti-btn--sm" id="btn-analyze-space">整体分析</button>
+          <button class="ti-btn ti-btn--secondary ti-btn--sm" id="btn-manual-asset">手动录入</button>
           <button class="ti-btn ti-btn--secondary ti-btn--sm" id="btn-import-assets">导入</button>
           <button class="ti-btn ti-btn--secondary ti-btn--sm" id="btn-refresh-assets">刷新</button>
         </div>
@@ -57,6 +58,7 @@ export async function renderAssets(container) {
     await loadAssets();
   });
   document.getElementById('btn-analyze-space').addEventListener('click', analyzeCurrentSpace);
+  document.getElementById('btn-manual-asset').addEventListener('click', showManualAssetModal);
   document.getElementById('btn-refresh-assets').addEventListener('click', loadAssets);
   document.getElementById('btn-import-assets').addEventListener('click', showImportModal);
   document.getElementById('asset-search').addEventListener('input', debounce(loadAssets, 250));
@@ -417,6 +419,148 @@ function detailField(label, value) {
       <div style="font-size:var(--text-sm);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(value || '-')}</div>
     </div>
   `;
+}
+
+function showManualAssetModal() {
+  const overlay = document.createElement('div');
+  overlay.className = 'ti-modal-backdrop';
+  overlay.setAttribute('data-open', '');
+  overlay.innerHTML = `
+    <div class="ti-modal ti-modal--lg">
+      <div class="ti-modal__header">
+        <h3 class="ti-modal__title">手动录入资产</h3>
+        <button class="ti-btn ti-btn--ghost ti-btn--sm ti-modal__close">关闭</button>
+      </div>
+      <div class="ti-modal__body">
+        <div style="font-size:var(--text-xs);color:var(--text-muted);margin-bottom:var(--space-3)">
+          至少填写 IP 或主机名，并录入一个服务和端口。服务版本只填干净版本号；nmap 或探测原文请放到原始 Banner。
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:var(--space-3)">
+          ${manualField('IP', '<input class="ti-input" id="manual-ip" placeholder="如 192.168.1.100；IP 和主机名二选一必填">')}
+          ${manualField('主机名', '<input class="ti-input" id="manual-hostname" placeholder="如 web-prod-01；IP 为空时用主机名合并">')}
+          ${manualField('环境', `
+            <select class="ti-select" id="manual-environment">
+              <option value="unknown">未知</option>
+              <option value="prod">生产</option>
+              <option value="test">测试</option>
+              <option value="dev">开发</option>
+            </select>
+          `)}
+          ${manualField('关键性', `
+            <select class="ti-select" id="manual-criticality">
+              <option value="medium">中</option>
+              <option value="high">高</option>
+              <option value="low">低</option>
+            </select>
+          `)}
+          ${manualField('操作系统', '<input class="ti-input" id="manual-os-name" placeholder="如 Ubuntu / CentOS / Windows Server">')}
+          ${manualField('系统版本', '<input class="ti-input" id="manual-os-version" placeholder="如 22.04 / 7.9 / 2019">')}
+          ${manualField('负责人', '<input class="ti-input" id="manual-owner" placeholder="如 secops / app-team">')}
+          ${manualField('标签', '<input class="ti-input" id="manual-tags" placeholder="逗号分隔，如 web, core, public">')}
+        </div>
+
+        <div style="height:1px;background:var(--border-subtle);margin:var(--space-4) 0"></div>
+
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:var(--space-3)">
+          ${manualField('产品/服务名', '<input class="ti-input" id="manual-product" placeholder="必填，如 nginx / tomcat / openssh">')}
+          ${manualField('版本', '<input class="ti-input" id="manual-version" placeholder="只填版本号，如 1.18.0；不要粘贴整段 nmap 输出">')}
+          ${manualField('厂商', '<input class="ti-input" id="manual-vendor" placeholder="选填，如 nginx / apache / openbsd / oracle">')}
+          ${manualField('端口', '<input class="ti-input" id="manual-port" type="number" min="1" max="65535" placeholder="必填，如 80 / 443 / 3306">')}
+          ${manualField('协议', `
+            <select class="ti-select" id="manual-protocol">
+              <option value="tcp">tcp</option>
+              <option value="udp">udp</option>
+            </select>
+          `)}
+          ${manualField('暴露范围', `
+            <select class="ti-select" id="manual-exposure">
+              <option value="unknown">未知</option>
+              <option value="public">公网</option>
+              <option value="internal">内网</option>
+              <option value="isolated">隔离网</option>
+            </select>
+          `)}
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr;gap:var(--space-3);margin-top:var(--space-3)">
+          ${manualField('标准 CPE', '<input class="ti-input ti-mono" id="manual-cpe" placeholder="选填，知道就填，如 cpe:2.3:a:apache:http_server:2.4.49:*:*:*:*:*:*:*">')}
+          ${manualField('原始 Banner', '<textarea class="ti-textarea ti-mono" id="manual-raw-banner" style="height:72px" placeholder="选填，可直接粘贴 nmap 或探测原文，如 OpenSSH 8.9p1 Ubuntu 3ubuntu0.6"></textarea>')}
+          ${manualField('备注', '<textarea class="ti-textarea" id="manual-notes" style="height:72px" placeholder="选填，记录业务用途、来源、人工判断等"></textarea>')}
+        </div>
+      </div>
+      <div class="ti-modal__footer">
+        <button class="ti-btn ti-btn--primary" id="manual-submit">保存资产</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  const close = () => overlay.remove();
+  overlay.querySelector('.ti-modal__close').addEventListener('click', close);
+  overlay.querySelector('#manual-submit').addEventListener('click', async () => {
+    const payload = readManualAssetPayload(overlay);
+    if (!payload.ip && !payload.hostname) {
+      showToast('请至少填写 IP 或主机名', 'error');
+      return;
+    }
+    if (!payload.product) {
+      showToast('请填写产品/服务名', 'error');
+      return;
+    }
+    if (!payload.port) {
+      showToast('请填写有效端口', 'error');
+      return;
+    }
+
+    const btn = overlay.querySelector('#manual-submit');
+    btn.disabled = true;
+    try {
+      const host = await API.createAsset(payload);
+      showToast('资产已保存');
+      close();
+      await loadSpaces();
+      await loadAssets();
+      await showAssetDetail(host.id);
+    } catch (err) {
+      showToast(err.message || '保存资产失败', 'error');
+    } finally {
+      btn.disabled = false;
+    }
+  });
+}
+
+function manualField(label, control) {
+  return `
+    <label style="display:flex;flex-direction:column;gap:var(--space-1);min-width:0">
+      <span style="font-size:var(--text-xs);color:var(--text-muted)">${label}</span>
+      ${control}
+    </label>
+  `;
+}
+
+function readManualAssetPayload(root) {
+  const value = id => root.querySelector(`#${id}`)?.value.trim() || '';
+  const port = Number.parseInt(value('manual-port'), 10);
+  return {
+    space_id: currentSpaceId,
+    ip: value('manual-ip') || null,
+    hostname: value('manual-hostname') || null,
+    os_name: value('manual-os-name') || null,
+    os_version: value('manual-os-version') || null,
+    environment: value('manual-environment') || 'unknown',
+    criticality: value('manual-criticality') || 'medium',
+    owner: value('manual-owner') || null,
+    tags: value('manual-tags').split(',').map(item => item.trim()).filter(Boolean),
+    notes: value('manual-notes') || null,
+    product: value('manual-product'),
+    version: value('manual-version') || null,
+    vendor: value('manual-vendor') || null,
+    cpe: value('manual-cpe') || null,
+    raw_banner: value('manual-raw-banner') || null,
+    port: Number.isFinite(port) ? port : null,
+    protocol: value('manual-protocol') || 'tcp',
+    exposure_scope: value('manual-exposure') || 'unknown',
+  };
 }
 
 function showImportModal() {
