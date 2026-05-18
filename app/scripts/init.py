@@ -29,7 +29,7 @@ async def download_attck_bundle(target: Path) -> None:
 
 async def main() -> None:
     from app.config import settings
-    from app.db.engine import ensure_fts_schema, engine
+    from app.db.engine import ensure_default_asset_space, ensure_demo_asset_cases, ensure_fts_schema, engine
     from app.db.models import Base
 
     # Ensure data directories exist
@@ -54,6 +54,11 @@ async def main() -> None:
     async with engine.begin() as conn:
         await ensure_fts_schema(conn)
     print("FTS5 virtual table and triggers created.")
+
+    await ensure_default_asset_space()
+    print("Default asset space ready.")
+    await ensure_demo_asset_cases()
+    print("Demo asset cases ready.")
 
     print("Initialization complete.")
 

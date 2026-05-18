@@ -3,6 +3,7 @@ import API from './api.js';
 import { renderWorkspace } from '../pages/workspace.js';
 import { renderHistoryList } from '../pages/history-list.js';
 import { renderHistoryDetail } from '../pages/history-detail.js';
+import { renderAssets } from '../pages/assets.js';
 import { renderSettings } from '../pages/settings.js';
 import { renderSources } from '../pages/sources.js';
 import { render404 } from '../pages/error.js';
@@ -50,6 +51,11 @@ router
     clearPageClass();
     setBreadcrumb('<a href="#/">工作区</a><span class="sep">›</span><a href="#/history">历史</a><span class="sep">›</span><span class="app-header__taskid">' + id.slice(0, 8) + '</span>');
     renderHistoryDetail(container, id);
+  })
+  .on('/assets', () => {
+    clearPageClass();
+    setBreadcrumb('<a href="#/">工作区</a><span class="sep">›</span><span>资产管理</span>');
+    renderAssets(container);
   })
   .on('/settings', () => {
     clearPageClass();

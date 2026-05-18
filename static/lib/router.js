@@ -44,6 +44,7 @@ class Router {
       const isActive =
         (page === 'workspace' && (hash === '/' || hash === '')) ||
         (page === 'history' && hash.startsWith('/history')) ||
+        (page === 'assets' && hash.startsWith('/assets')) ||
         (page === 'sources' && hash.startsWith('/sources')) ||
         (page === 'settings' && hash.startsWith('/settings'));
       link.classList.toggle('active', isActive);

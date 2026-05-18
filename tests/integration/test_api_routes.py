@@ -13,7 +13,7 @@ from httpx import ASGITransport, AsyncClient
 
 from app.main import app
 from app.db.engine import init_db, close_db, async_session_factory
-from app.db.models import Analysis, IOC, CVERef, AttackTechnique, Finding, AgentLog
+from app.db.models import Analysis, AssetService, IOC, CVERef, AttackTechnique, Finding, AgentLog, NvdCVECache, NvdCpeMatch
 from app.utils.time import now_iso
 from app.utils.slug import slugify
 
@@ -347,6 +347,286 @@ class TestSourcesRoutes:
     async def test_test_source(self, client):
         resp = await client.post("/sources/test/nvd")
         assert resp.status_code == 200
+
+
+# ===== Asset Routes =====
+
+class TestAssetRoutes:
+    @pytest.mark.asyncio
+    async def test_asset_spaces_include_default(self, client):
+        resp = await client.get("/api/asset-spaces")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert any(space["id"] == "default" for space in data)
+
+    @pytest.mark.asyncio
+    async def test_default_space_includes_demo_asset_cases(self, client):
+        resp = await client.get("/api/assets", params={"space_id": "default", "search": "demo-web-prod-01"})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total"] >= 1
+        host = data["items"][0]
+        assert host["id"] == "demo-asset-web-prod-01"
+        assert host["services"][0]["cve_matches"][0]["cve_id"] == "CVE-2021-41773"
+
+        resp = await client.get(f"/api/assets/{host['id']}")
+        assert resp.status_code == 200
+        detail = resp.json()
+        assert detail["hostname"] == "demo-web-prod-01"
+        assert detail["services"][0]["exposures"][0]["exposure_scope"] == "public"
+
+    @pytest.mark.asyncio
+    async def test_patch_asset_cve_match_status_and_notes(self, client):
+        resp = await client.get("/api/assets/demo-asset-web-prod-01")
+        assert resp.status_code == 200
+        match = resp.json()["services"][0]["cve_matches"][0]
+
+        resp = await client.patch(f"/api/asset-cve-matches/{match['id']}", json={
+            "status": "acknowledged",
+            "user_notes": "Owner accepted risk until maintenance window.",
+        })
+        assert resp.status_code == 200
+        assert resp.json()["status"] == "acknowledged"
+
+        resp = await client.get("/api/assets/demo-asset-web-prod-01")
+        assert resp.status_code == 200
+        updated = resp.json()["services"][0]["cve_matches"][0]
+        assert updated["status"] == "acknowledged"
+        assert updated["user_notes"] == "Owner accepted risk until maintenance window."
+
+    @pytest.mark.asyncio
+    async def test_analyze_asset_space_creates_history_report(self, client):
+        resp = await client.post("/api/asset-spaces/default/analyze")
+        assert resp.status_code == 200
+        result = resp.json()
+        assert result["status"] == "completed"
+        assert result["summary"]["asset_count"]["hosts"] >= 2
+        assert result["summary"]["risk"]["open_cves"] >= 1
+
+        resp = await client.get(f"/history/{result['analysis_id']}")
+        assert resp.status_code == 200
+        detail = resp.json()
+        assert detail["intent"] == "asset_space_analysis"
+        assert "## 1. 概览" in detail["report_md"]
+        assert "## 8. 待确认资产" in detail["report_md"]
+        assert "CVE-" in detail["report_md"]
+        assert detail["cve_refs"]
+
+    @pytest.mark.asyncio
+    async def test_manual_create_asset_and_detail(self, client):
+        ip = f"192.168.55.{int(uuid.uuid4().hex[:2], 16)}"
+        resp = await client.post("/api/assets", json={
+            "space_id": "default",
+            "ip": ip,
+            "hostname": "manual-web",
+            "os_name": "Ubuntu",
+            "os_version": "22.04",
+            "environment": "prod",
+            "criticality": "high",
+            "owner": "secops",
+            "tags": ["manual", "web"],
+            "notes": "Manual asset test",
+            "product": "apache",
+            "version": "2.4.49",
+            "vendor": "apache",
+            "cpe": "cpe:2.3:a:apache:http_server:2.4.49:*:*:*:*:*:*:*",
+            "raw_banner": "Apache httpd 2.4.49",
+            "port": 443,
+            "protocol": "tcp",
+            "exposure_scope": "public",
+        })
+        assert resp.status_code == 200
+        host = resp.json()
+        assert host["ip"] == ip
+        assert host["source"] == "manual"
+        assert host["services"][0]["cpe_confidence"] == "high"
+        assert host["services"][0]["exposures"][0]["port"] == 443
+
+        resp = await client.get("/api/assets", params={"space_id": "default", "search": ip})
+        assert resp.status_code == 200
+        assert resp.json()["items"][0]["hostname"] == "manual-web"
+
+    @pytest.mark.asyncio
+    async def test_delete_asset_and_batch_delete_assets(self, client):
+        created_ids = []
+        for suffix in ("a", "b", "c"):
+            resp = await client.post("/api/assets", json={
+                "space_id": "default",
+                "ip": f"192.168.56.{int(uuid.uuid4().hex[:2], 16)}",
+                "hostname": f"delete-{suffix}",
+                "environment": "test",
+                "criticality": "medium",
+                "product": "nginx",
+                "version": "1.18.0",
+                "port": 8080,
+                "protocol": "tcp",
+                "exposure_scope": "internal",
+            })
+            assert resp.status_code == 200
+            created_ids.append(resp.json()["id"])
+
+        resp = await client.delete(f"/api/assets/{created_ids[0]}")
+        assert resp.status_code == 200
+        assert resp.json()["deleted"] == created_ids[0]
+
+        resp = await client.post("/api/assets/batch_delete", json={"ids": created_ids[1:] + ["missing-host"]})
+        assert resp.status_code == 200
+        result = resp.json()
+        assert set(result["deleted"]) == set(created_ids[1:])
+        assert result["missing"] == ["missing-host"]
+
+        resp = await client.get("/api/assets", params={"space_id": "default", "search": "delete-"})
+        assert resp.status_code == 200
+        assert resp.json()["total"] == 0
+
+    @pytest.mark.asyncio
+    async def test_csv_import_template(self, client):
+        resp = await client.get("/api/assets/import/template/csv")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["filename"] == "asset-import-template.csv"
+        assert "ip,hostname,os_name,os_version" in data["content"]
+        assert "product,version,vendor,port,protocol,exposure_scope" in data["content"]
+
+    @pytest.mark.asyncio
+    async def test_import_csv_and_list_assets(self, client):
+        ip = f"192.168.51.{int(uuid.uuid4().hex[:2], 16)}"
+        csv_content = (
+            "ip,hostname,os_name,os_version,environment,criticality,owner,tags,product,version,vendor,port,protocol,exposure_scope,notes\n"
+            f"{ip},web-01,Ubuntu,22.04,prod,high,sec,\"web,core\",nginx,1.18.0,nginx,80,tcp,public,\n"
+        )
+        resp = await client.post("/api/assets/import/csv-text", json={
+            "space_id": "default",
+            "content": csv_content,
+            "mode": "merge",
+        })
+        assert resp.status_code == 200
+        summary = resp.json()["summary"]
+        assert summary["hosts_created"] + summary["hosts_updated"] >= 1
+        assert summary["services_created"] + summary["services_updated"] >= 1
+
+        resp = await client.get("/api/assets", params={"space_id": "default", "search": ip})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total"] >= 1
+        assert data["items"][0]["services"]
+
+    @pytest.mark.asyncio
+    async def test_import_json_and_list_assets(self, client):
+        ip = f"192.168.53.{int(uuid.uuid4().hex[:2], 16)}"
+        payload = {
+            "version": "1.0",
+            "source": "test_json",
+            "hosts": [{
+                "ip": ip,
+                "hostname": "json-web",
+                "os": {"name": "Ubuntu", "version": "22.04"},
+                "environment": "prod",
+                "criticality": "high",
+                "tags": ["web"],
+                "services": [{
+                    "product": "nginx",
+                    "version": "1.18.0",
+                    "vendor": "nginx",
+                    "cpe": "cpe:2.3:a:nginx:nginx:1.18.0:*:*:*:*:*:*:*",
+                    "exposures": [{"port": 8080, "protocol": "tcp", "scope": "public"}],
+                }],
+            }],
+        }
+        resp = await client.post("/api/assets/import/json-text", json={
+            "space_id": "default",
+            "content": json.dumps(payload),
+            "mode": "merge",
+        })
+        assert resp.status_code == 200
+        assert resp.json()["summary"]["hosts_created"] + resp.json()["summary"]["hosts_updated"] >= 1
+
+        resp = await client.get("/api/assets", params={"space_id": "default", "search": ip})
+        assert resp.status_code == 200
+        item = resp.json()["items"][0]
+        assert item["services"][0]["cpe_confidence"] == "high"
+
+    @pytest.mark.asyncio
+    async def test_import_nmap_xml_and_list_assets(self, client):
+        ip = f"192.168.54.{int(uuid.uuid4().hex[:2], 16)}"
+        xml_content = f"""<?xml version="1.0"?>
+<nmaprun scanner="nmap">
+  <host>
+    <status state="up"/>
+    <address addr="{ip}" addrtype="ipv4"/>
+    <hostnames><hostname name="nmap-web"/></hostnames>
+    <os><osmatch name="Linux 5.x" accuracy="98"/></os>
+    <ports>
+      <port protocol="tcp" portid="443">
+        <state state="open"/>
+        <service name="https" product="nginx" version="1.18.0">
+          <cpe>cpe:/a:nginx:nginx:1.18.0</cpe>
+        </service>
+      </port>
+    </ports>
+  </host>
+</nmaprun>
+"""
+        resp = await client.post("/api/assets/import/nmap-text", json={
+            "space_id": "default",
+            "content": xml_content,
+            "mode": "merge",
+            "filename": "scan.xml",
+        })
+        assert resp.status_code == 200
+        summary = resp.json()["summary"]
+        assert summary["hosts_created"] + summary["hosts_updated"] >= 1
+        assert summary["services_created"] + summary["services_updated"] >= 1
+        assert summary["cpe_normalization"]["high"] >= 1
+
+        resp = await client.get("/api/assets", params={"space_id": "default", "search": ip})
+        assert resp.status_code == 200
+        item = resp.json()["items"][0]
+        assert item["hostname"] == "nmap-web"
+        assert item["services"][0]["cpe"] == "cpe:2.3:a:nginx:nginx:1.18.0:*:*:*:*:*:*:*"
+        assert item["services"][0]["exposures"][0]["port"] == 443
+
+    @pytest.mark.asyncio
+    async def test_identify_service_uses_local_cve_cache(self, client, db):
+        ip = f"192.168.52.{int(uuid.uuid4().hex[:2], 16)}"
+        cve_id = f"CVE-2099-{int(uuid.uuid4().hex[:4], 16):04d}"
+        csv_content = (
+            "ip,hostname,os_name,os_version,environment,criticality,owner,tags,product,version,vendor,port,protocol,exposure_scope,notes\n"
+            f"{ip},web-02,Ubuntu,22.04,prod,high,sec,web,nginx,1.18.0,nginx,443,tcp,public,\n"
+        )
+        resp = await client.post("/api/assets/import/csv-text", json={
+            "space_id": "default",
+            "content": csv_content,
+            "mode": "merge",
+        })
+        assert resp.status_code == 200
+
+        resp = await client.get("/api/assets", params={"space_id": "default", "search": ip})
+        host = resp.json()["items"][0]
+        service = host["services"][0]
+
+        cpe = service["cpe"]
+        db.add(NvdCVECache(
+            cve_id=cve_id,
+            description="Test nginx issue",
+            cvss_v3_score=9.8,
+            is_in_kev=True,
+            epss_score=0.9,
+            updated_at=now_iso(),
+        ))
+        db.add(NvdCpeMatch(
+            id=_uid(),
+            cve_id=cve_id,
+            cpe=cpe,
+            vulnerable=True,
+        ))
+        await db.commit()
+
+        resp = await client.post(f"/api/assets/{host['id']}/services/{service['id']}/identify")
+        assert resp.status_code == 200
+        result = resp.json()
+        assert result["statistics"]["high"] >= 1
+        assert any(match["cve_id"] == cve_id for match in result["matches"])
 
 
 # ===== Analyze Routes (mocked) =====
