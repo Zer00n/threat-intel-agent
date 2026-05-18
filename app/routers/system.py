@@ -27,7 +27,7 @@ async def health_check(db: AsyncSession = Depends(get_db)):
     return {
         "status": "ok",
         "db": True,
-        "version": "0.8.0",
+        "version": "0.9.1",
         "api_key_configured": bool(app_settings.anthropic_api_key),
     }
 

@@ -97,7 +97,7 @@ async def export_pdf(analysis: Analysis) -> tuple[bytes, str]:
         f"耗时：{analysis.duration_s or 0} 秒",
         f"令牌消耗：{analysis.token_input or 0} 输入 / {analysis.token_output or 0} 输出",
         f"费用：￥{analysis.cost_usd or 0:.4f}",
-        "生成器：Threat Intel Agent v0.9",
+        "生成器：Threat Intel Agent v0.9.1",
     ]
     for line in meta_lines:
         story.append(Paragraph(_esc(line), styles["meta"]))

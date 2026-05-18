@@ -15,5 +15,7 @@ dist/
 build/
 .mypy_cache/
 *.bak
-docs/
+plan/
+tests/
+test/
 .vscode/

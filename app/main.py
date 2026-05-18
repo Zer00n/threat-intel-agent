@@ -66,7 +66,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Threat Intel Agent",
-    version="0.8.0",
+    version="0.9.1",
     lifespan=lifespan,
 )
 
@@ -89,7 +89,7 @@ app.include_router(settings_router.router)
 
 @app.get("/api/info")
 async def api_info():
-    return {"name": "ti-agent", "version": "0.8.0"}
+    return {"name": "ti-agent", "version": "0.9.1"}
 
 
 # Mount static files - must be last so API routes take priority
