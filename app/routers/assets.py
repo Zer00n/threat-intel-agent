@@ -15,6 +15,7 @@ from app.assets.space_analysis import analyze_asset_space
 from app.db.models import AssetCVEMatch, AssetSpace, Host
 from app.deps import get_db
 from app.schemas.assets import (
+    AssetBatchDeleteRequest,
     AssetManualCreate,
     AssetImportTextRequest,
     AssetSpaceCreate,
@@ -193,6 +194,17 @@ async def delete_asset(host_id: str, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Asset not found")
     await AssetRepository(db).delete_host(host_id)
     return {"deleted": host_id}
+
+
+@router.post("/assets/batch_delete")
+async def batch_delete_assets(req: AssetBatchDeleteRequest, db: AsyncSession = Depends(get_db)):
+    hosts = (await db.execute(select(Host).where(Host.id.in_(req.ids)))).scalars().all()
+    found_ids = {host.id for host in hosts}
+    missing = [host_id for host_id in req.ids if host_id not in found_ids]
+    for host in hosts:
+        await db.delete(host)
+    await db.commit()
+    return {"deleted": list(found_ids), "missing": missing}
 
 
 @router.post("/assets/import/csv-text")

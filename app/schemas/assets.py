@@ -58,6 +58,10 @@ class AssetManualCreate(BaseModel):
     exposure_scope: str = "unknown"
 
 
+class AssetBatchDeleteRequest(BaseModel):
+    ids: list[str] = Field(..., min_length=1)
+
+
 class ServicePatch(BaseModel):
     cpe: str | None = None
     cpe_confidence: str | None = None

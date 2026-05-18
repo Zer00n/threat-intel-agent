@@ -4,6 +4,7 @@ import { showToast } from '../lib/utils.js';
 let currentSpaceId = localStorage.getItem('ti-asset-space-id') || 'default';
 let currentImportType = 'csv';
 let currentDetailHostId = null;
+let selectedAssetIds = new Set();
 
 export async function renderAssets(container) {
   container.innerHTML = `
@@ -115,7 +116,19 @@ async function loadAssets() {
     const data = await API.assets(params);
     const hosts = data.items || [];
     const serviceCount = hosts.reduce((n, h) => n + (h.services?.length || 0), 0);
-    summary.innerHTML = `<span>共 ${data.total || 0} 个资产</span><span>${serviceCount} 个服务</span>`;
+    const currentIds = new Set(hosts.map(h => h.id));
+    selectedAssetIds = new Set([...selectedAssetIds].filter(id => currentIds.has(id)));
+    summary.innerHTML = `
+      <span>共 ${data.total || 0} 个资产</span>
+      <span>${serviceCount} 个服务</span>
+      ${hosts.length ? `
+        <label style="display:flex;gap:var(--space-1);align-items:center">
+          <input type="checkbox" id="asset-select-all" ${selectedAssetIds.size && selectedAssetIds.size === hosts.length ? 'checked' : ''}>
+          <span>全选当前页</span>
+        </label>
+        <button class="ti-btn ti-btn--secondary ti-btn--sm" id="btn-delete-selected-assets" ${selectedAssetIds.size ? '' : 'disabled'}>批量删除 ${selectedAssetIds.size || ''}</button>
+      ` : ''}
+    `;
 
     if (!hosts.length) {
       list.innerHTML = '<div class="empty-state"><h3>暂无资产</h3><p>当前空间还没有资产，可先导入 CSV 或 JSON。</p></div>';
@@ -123,6 +136,7 @@ async function loadAssets() {
     }
 
     list.innerHTML = hosts.map(renderHost).join('');
+    wireBulkAssetActions(hosts);
     wireAssetActions();
   } catch (err) {
     list.innerHTML = '<div class="empty-state"><h3>加载失败</h3><p>请稍后重试。</p></div>';
@@ -141,6 +155,7 @@ function renderHost(host) {
     <div class="source-card" style="display:block">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:var(--space-3)">
         <div class="source-info" style="min-width:0">
+          <input type="checkbox" data-select-asset="${escapeAttr(host.id)}" ${selectedAssetIds.has(host.id) ? 'checked' : ''} aria-label="选择资产 ${escapeAttr(title)}">
           <span class="ti-status-dot ti-status-dot--${cveCount ? 'failed' : 'waiting'}"></span>
           <div style="min-width:0">
             <strong class="ti-mono">${escapeHtml(title)}</strong>
@@ -153,6 +168,7 @@ function renderHost(host) {
           <span class="ti-badge ti-badge--${riskCls}">${riskLabel}${cveCount ? ` ${cveCount}` : ''}</span>
           <button class="ti-btn ti-btn--secondary ti-btn--sm" data-open-asset="${escapeAttr(host.id)}">详情</button>
           <button class="ti-btn ti-btn--secondary ti-btn--sm" data-identify-host="${escapeAttr(host.id)}">识别资产</button>
+          <button class="ti-btn ti-btn--danger ti-btn--sm" data-delete-asset="${escapeAttr(host.id)}" data-asset-title="${escapeAttr(title)}">删除</button>
         </div>
       </div>
       <div style="margin-top:var(--space-3);border-top:1px solid var(--border-subtle)">
@@ -179,7 +195,58 @@ function renderService(host, service) {
   `;
 }
 
+function wireBulkAssetActions(hosts) {
+  document.getElementById('asset-select-all')?.addEventListener('change', (e) => {
+    if (e.target.checked) {
+      hosts.forEach(host => selectedAssetIds.add(host.id));
+    } else {
+      hosts.forEach(host => selectedAssetIds.delete(host.id));
+    }
+    renderSelectionState(hosts);
+  });
+  document.getElementById('btn-delete-selected-assets')?.addEventListener('click', () => {
+    const ids = [...selectedAssetIds];
+    if (!ids.length) return;
+    showDeleteAssetsModal({
+      title: `删除 ${ids.length} 个资产？`,
+      body: '将删除选中的资产及其服务、暴露面和 CVE 命中记录。此操作不可撤销。',
+      onConfirm: async () => {
+        await API.batchDeleteAssets(ids);
+        ids.forEach(id => selectedAssetIds.delete(id));
+        showToast('已删除选中资产');
+        await loadSpaces();
+        await loadAssets();
+      },
+    });
+  });
+}
+
 function wireAssetActions() {
+  document.querySelectorAll('[data-select-asset]').forEach(input => {
+    input.addEventListener('change', (e) => {
+      if (e.target.checked) selectedAssetIds.add(input.dataset.selectAsset);
+      else selectedAssetIds.delete(input.dataset.selectAsset);
+      const hosts = [...document.querySelectorAll('[data-select-asset]')].map(item => ({ id: item.dataset.selectAsset }));
+      renderSelectionState(hosts);
+    });
+  });
+  document.querySelectorAll('[data-delete-asset]').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      const hostId = btn.dataset.deleteAsset;
+      showDeleteAssetsModal({
+        title: '删除这个资产？',
+        body: `将删除 ${btn.dataset.assetTitle || '该资产'} 及其服务、暴露面和 CVE 命中记录。此操作不可撤销。`,
+        onConfirm: async () => {
+          await API.deleteAsset(hostId);
+          selectedAssetIds.delete(hostId);
+          showToast('资产已删除');
+          await loadSpaces();
+          await loadAssets();
+        },
+      });
+    });
+  });
   document.querySelectorAll('[data-open-asset]').forEach(btn => {
     btn.addEventListener('click', async (e) => {
       e.preventDefault();
@@ -218,6 +285,60 @@ function wireAssetActions() {
         btn.disabled = false;
       }
     });
+  });
+}
+
+function renderSelectionState(hosts) {
+  document.querySelectorAll('[data-select-asset]').forEach(input => {
+    input.checked = selectedAssetIds.has(input.dataset.selectAsset);
+  });
+  const currentIds = hosts.map(host => host.id);
+  const selectedOnPage = currentIds.filter(id => selectedAssetIds.has(id)).length;
+  const selectAll = document.getElementById('asset-select-all');
+  if (selectAll) {
+    selectAll.checked = currentIds.length > 0 && selectedOnPage === currentIds.length;
+    selectAll.indeterminate = selectedOnPage > 0 && selectedOnPage < currentIds.length;
+  }
+  const deleteBtn = document.getElementById('btn-delete-selected-assets');
+  if (deleteBtn) {
+    deleteBtn.disabled = selectedAssetIds.size === 0;
+    deleteBtn.textContent = `批量删除 ${selectedAssetIds.size || ''}`.trim();
+  }
+}
+
+function showDeleteAssetsModal({ title, body, onConfirm }) {
+  const overlay = document.createElement('div');
+  overlay.className = 'ti-modal-backdrop';
+  overlay.setAttribute('data-open', '');
+  overlay.innerHTML = `
+    <div class="ti-modal">
+      <div class="ti-modal__header">
+        <h3 class="ti-modal__title">${escapeHtml(title)}</h3>
+        <button class="ti-btn ti-btn--ghost ti-btn--sm ti-modal__close">关闭</button>
+      </div>
+      <div class="ti-modal__body">
+        <p style="margin:0;color:var(--text-secondary)">${escapeHtml(body)}</p>
+      </div>
+      <div class="ti-modal__footer">
+        <button class="ti-btn ti-btn--secondary" id="asset-delete-cancel">取消</button>
+        <button class="ti-btn ti-btn--danger" id="asset-delete-confirm">确认删除</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  const close = () => overlay.remove();
+  overlay.querySelector('.ti-modal__close').addEventListener('click', close);
+  overlay.querySelector('#asset-delete-cancel').addEventListener('click', close);
+  overlay.querySelector('#asset-delete-confirm').addEventListener('click', async () => {
+    const btn = overlay.querySelector('#asset-delete-confirm');
+    btn.disabled = true;
+    try {
+      await onConfirm();
+      close();
+    } catch (err) {
+      showToast(err.message || '删除失败', 'error');
+      btn.disabled = false;
+    }
   });
 }
 
@@ -582,6 +703,12 @@ function showImportModal() {
           </select>
           <input id="asset-import-file" type="file" class="ti-input" accept=".csv,.json,.xml,application/json,text/csv,text/xml,application/xml" style="flex:1;min-width:240px">
         </div>
+        <div class="source-update-summary" style="display:flex;gap:var(--space-2);align-items:center;flex-wrap:wrap;margin-bottom:var(--space-3)">
+          <button class="ti-btn ti-btn--secondary ti-btn--sm" id="asset-download-csv-template">下载 CSV 模板</button>
+          <button class="ti-btn ti-btn--secondary ti-btn--sm" id="asset-fill-json-example">填入 JSON 示例</button>
+          <button class="ti-btn ti-btn--secondary ti-btn--sm" id="asset-fill-nmap-example">填入 nmap XML 示例</button>
+          <span id="asset-import-help" style="font-size:var(--text-xs);color:var(--text-muted)">CSV 一行代表一个服务端口；JSON 使用平台标准结构；nmap XML 支持 nmap -oX 输出。</span>
+        </div>
         <textarea id="asset-import-content" class="ti-textarea ti-mono" style="width:100%;height:260px" placeholder="选择文件或粘贴 CSV / JSON / nmap XML 内容"></textarea>
       </div>
       <div class="ti-modal__footer">
@@ -597,6 +724,31 @@ function showImportModal() {
   overlay.querySelector('#asset-import-type').value = currentImportType;
   overlay.querySelector('#asset-import-type').addEventListener('change', e => {
     currentImportType = e.target.value;
+    updateImportHelp(overlay);
+  });
+  updateImportHelp(overlay);
+  overlay.querySelector('#asset-download-csv-template').addEventListener('click', async () => {
+    try {
+      const template = await API.assetCsvTemplate();
+      downloadTextFile(template.filename || 'asset-import-template.csv', template.content || '');
+      currentImportType = 'csv';
+      overlay.querySelector('#asset-import-type').value = currentImportType;
+      updateImportHelp(overlay);
+    } catch (err) {
+      showToast(err.message || '下载模板失败', 'error');
+    }
+  });
+  overlay.querySelector('#asset-fill-json-example').addEventListener('click', () => {
+    currentImportType = 'json';
+    overlay.querySelector('#asset-import-type').value = currentImportType;
+    overlay.querySelector('#asset-import-content').value = JSON.stringify(assetJsonExample(), null, 2);
+    updateImportHelp(overlay);
+  });
+  overlay.querySelector('#asset-fill-nmap-example').addEventListener('click', () => {
+    currentImportType = 'nmap';
+    overlay.querySelector('#asset-import-type').value = currentImportType;
+    overlay.querySelector('#asset-import-content').value = assetNmapExample();
+    updateImportHelp(overlay);
   });
   overlay.querySelector('#asset-import-file').addEventListener('change', async (e) => {
     const file = e.target.files?.[0];
@@ -625,6 +777,79 @@ function showImportModal() {
       showToast(err.message || '导入失败', 'error');
     }
   });
+}
+
+function updateImportHelp(root) {
+  const help = root.querySelector('#asset-import-help');
+  if (!help) return;
+  help.textContent = {
+    csv: 'CSV 一行代表一个 Service + Exposure；tags 用逗号分隔并加双引号，IP 和主机名至少填一个。',
+    json: 'JSON 使用平台标准结构：hosts 数组下包含 os、services、exposures，适合 CMDB 导出后转换。',
+    nmap: 'nmap XML 支持 nmap -oX 输出；如果 XML 内有 cpe 标签，将直接作为高置信度 CPE 采用。',
+  }[currentImportType] || '选择文件或粘贴内容后导入。';
+}
+
+function downloadTextFile(filename, content) {
+  const blob = new Blob([content], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function assetJsonExample() {
+  return {
+    version: '1.0',
+    source: 'manual_export',
+    exported_at: '2026-05-18T10:00:00Z',
+    hosts: [{
+      ip: '192.168.1.100',
+      hostname: 'web-prod-01',
+      os: {
+        name: 'Ubuntu',
+        version: '22.04',
+        cpe: 'cpe:2.3:o:canonical:ubuntu_linux:22.04:*:*:*:*:*:*:*',
+      },
+      environment: 'prod',
+      criticality: 'high',
+      owner: 'secops',
+      tags: ['web', 'core'],
+      services: [{
+        product: 'nginx',
+        version: '1.18.0',
+        vendor: 'nginx',
+        cpe: 'cpe:2.3:a:nginx:nginx:1.18.0:*:*:*:*:*:*:*',
+        exposures: [
+          { port: 80, protocol: 'tcp', scope: 'public' },
+          { port: 443, protocol: 'tcp', scope: 'public' },
+        ],
+      }],
+    }],
+  };
+}
+
+function assetNmapExample() {
+  return `<?xml version="1.0"?>
+<nmaprun scanner="nmap">
+  <host>
+    <status state="up"/>
+    <address addr="192.168.1.100" addrtype="ipv4"/>
+    <hostnames><hostname name="web-prod-01"/></hostnames>
+    <os><osmatch name="Linux 5.x" accuracy="98"/></os>
+    <ports>
+      <port protocol="tcp" portid="443">
+        <state state="open"/>
+        <service name="https" product="nginx" version="1.18.0">
+          <cpe>cpe:/a:nginx:nginx:1.18.0</cpe>
+        </service>
+      </port>
+    </ports>
+  </host>
+</nmaprun>`;
 }
 
 function showIdentifyResult(result) {

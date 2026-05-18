@@ -82,11 +82,17 @@ const API = {
 
   createAsset: (data) => API.post('/api/assets', data),
 
+  deleteAsset: (id) => API.del(`/api/assets/${id}`),
+
+  batchDeleteAssets: (ids) => API.post('/api/assets/batch_delete', { ids }),
+
   importAssetsCsvText: (data) => API.post('/api/assets/import/csv-text', data),
 
   importAssetsJsonText: (data) => API.post('/api/assets/import/json-text', data),
 
   importAssetsNmapText: (data) => API.post('/api/assets/import/nmap-text', data),
+
+  assetCsvTemplate: () => API.get('/api/assets/import/template/csv'),
 
   identifyService: (hostId, serviceId) => API.post(`/api/assets/${hostId}/services/${serviceId}/identify`),
 

@@ -447,6 +447,48 @@ class TestAssetRoutes:
         assert resp.json()["items"][0]["hostname"] == "manual-web"
 
     @pytest.mark.asyncio
+    async def test_delete_asset_and_batch_delete_assets(self, client):
+        created_ids = []
+        for suffix in ("a", "b", "c"):
+            resp = await client.post("/api/assets", json={
+                "space_id": "default",
+                "ip": f"192.168.56.{int(uuid.uuid4().hex[:2], 16)}",
+                "hostname": f"delete-{suffix}",
+                "environment": "test",
+                "criticality": "medium",
+                "product": "nginx",
+                "version": "1.18.0",
+                "port": 8080,
+                "protocol": "tcp",
+                "exposure_scope": "internal",
+            })
+            assert resp.status_code == 200
+            created_ids.append(resp.json()["id"])
+
+        resp = await client.delete(f"/api/assets/{created_ids[0]}")
+        assert resp.status_code == 200
+        assert resp.json()["deleted"] == created_ids[0]
+
+        resp = await client.post("/api/assets/batch_delete", json={"ids": created_ids[1:] + ["missing-host"]})
+        assert resp.status_code == 200
+        result = resp.json()
+        assert set(result["deleted"]) == set(created_ids[1:])
+        assert result["missing"] == ["missing-host"]
+
+        resp = await client.get("/api/assets", params={"space_id": "default", "search": "delete-"})
+        assert resp.status_code == 200
+        assert resp.json()["total"] == 0
+
+    @pytest.mark.asyncio
+    async def test_csv_import_template(self, client):
+        resp = await client.get("/api/assets/import/template/csv")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["filename"] == "asset-import-template.csv"
+        assert "ip,hostname,os_name,os_version" in data["content"]
+        assert "product,version,vendor,port,protocol,exposure_scope" in data["content"]
+
+    @pytest.mark.asyncio
     async def test_import_csv_and_list_assets(self, client):
         ip = f"192.168.51.{int(uuid.uuid4().hex[:2], 16)}"
         csv_content = (
