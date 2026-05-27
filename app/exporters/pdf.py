@@ -43,7 +43,10 @@ def _ensure_font() -> str:
         opener = urllib.request.build_opener(proxy_handler)
     else:
         opener = urllib.request.build_opener()
-    opener.retrieve(_FONT_URL, _FONT_FILE)
+    resp = opener.open(_FONT_URL)
+    with open(_FONT_FILE, "wb") as f:
+        f.write(resp.read())
+    resp.close()
     return _FONT_FILE
 
 
